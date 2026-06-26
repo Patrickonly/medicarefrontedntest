@@ -301,6 +301,15 @@ export default function SubscriptionPage() {
                               <p className="text-sm font-medium text-slate-900">{getCoverageText()}</p>
                             </div>
                           </div>
+
+                          {durationMonths > 1 && (
+                            <div className="p-4 bg-teal-50 rounded-xl border border-teal-200 flex items-center justify-between">
+                              <span className="text-sm font-bold text-teal-800">Total Amount ({durationMonths} months)</span>
+                              <span className="text-xl font-black text-teal-900">
+                                {getPrice().toLocaleString()} <span className="text-sm font-bold">RWF</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       

@@ -303,6 +303,7 @@ export const localDB = {
       setToStorage(STORAGE_KEYS.TEMP_USERS, tempUsers);
       return tempUser;
     },
+    getByEmail: (email: string) => getFromStorage<TempUser>(STORAGE_KEYS.TEMP_USERS).find((u) => u.email === email),
   },
 
   // Organizations

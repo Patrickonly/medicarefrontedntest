@@ -35,9 +35,11 @@ export interface PaginatedResponse<T> {
 export type UserRole =
   | "super_admin"
   | "org_owner"
+  | "owner"
   | "director"
   | "medical_director"
   | "admin"
+  | "manager"
   | "dept_head"
   | "doctor"
   | "nurse"

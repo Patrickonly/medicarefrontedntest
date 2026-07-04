@@ -1,172 +1,60 @@
-import { localDB } from "@/data/localStorageDB";
 import { useAuth } from "@/hooks/useAuth";
-import type { UserRole } from "@/types/models";
 import {
-  BarChart3,
   Bell,
+  ChevronDown,
   ChevronRight,
+  CloudOff,
   HeartPulse,
-  LayoutDashboard,
   LogOut,
   Menu,
-  Package,
-  Receipt,
-  ShoppingCart,
-  Truck,
-  UserPlus,
+  Settings,
   Users,
   Wifi,
-  CloudOff,
   X,
-  Clock,
-  ClipboardList,
-  Tags,
-  ListTree,
-  CreditCard,
-  Percent,
-  BookOpen,
-  ShieldCheck,
-  Banknote
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import UserMenu from "./UserMenu";
+import { getDashboardScope, getSidebarSections } from "@/pages/dashboard/core/dashboardContent";
+import type { UserRole } from "@/types/models";
 
-interface MenuItem {
+interface MenuLink {
+  icon: any;
   label: string;
-  items: {
-    icon: any;
-    label: string;
-    path: string;
-    roles: UserRole[];
-  }[];
+  path: string;
 }
 
-const getMenuForRole = (role?: UserRole | null): MenuItem[] => {
-  const baseMenu = [
-    {
-      label: "Dashboard",
-      items: [
-        { icon: LayoutDashboard, label: "Operations Dashboard", path: "/dashboard", roles: ["super_admin", "org_owner", "admin", "director", "accountant", "cashier", "cashier_agro", "cashier_vet", "pharmacist", "storekeeper"] }
-      ]
-    }
-  ];
+interface MenuGroup {
+  label: string;
+  items: MenuLink[];
+}
 
-  if (role === "super_admin" || role === "org_owner" || role === "admin" || role === "director") {
-    return [
-      ...baseMenu,
-      {
-        label: "Sales & POS",
-        items: [
-          { icon: ShoppingCart, label: "Point of Sale", path: "/dashboard/pos", roles: ["super_admin", "org_owner", "admin", "cashier", "cashier_agro", "cashier_vet", "pharmacist"] },
-          { icon: Clock, label: "Shift Management", path: "/dashboard/shifts", roles: ["super_admin", "org_owner", "admin"] },
-          { icon: Percent, label: "Discount Requests", path: "/dashboard/discounts", roles: ["super_admin", "org_owner", "admin"] }
-        ]
-      },
-      {
-        label: "Procurement",
-        items: [
-          { icon: Truck, label: "Suppliers", path: "/dashboard/suppliers", roles: ["super_admin", "org_owner", "admin", "accountant", "procurement_officer"] },
-          { icon: ClipboardList, label: "Purchase Orders", path: "/dashboard/purchase-orders", roles: ["super_admin", "org_owner", "admin", "procurement_officer"] }
-        ]
-      },
-      {
-        label: "Inventory",
-        items: [
-          { icon: Package, label: "Product Batches (Stock)", path: "/dashboard/inventory", roles: ["super_admin", "org_owner", "admin", "pharmacist", "storekeeper", "accountant"] },
-          { icon: Package, label: "Products Master", path: "/dashboard/products", roles: ["super_admin", "org_owner", "admin"] },
-          { icon: ListTree, label: "Categories", path: "/dashboard/categories", roles: ["super_admin", "org_owner", "admin"] },
-          { icon: Tags, label: "Product Types", path: "/dashboard/product-types", roles: ["super_admin", "org_owner", "admin"] },
-        ]
-      },
-      {
-        label: "Customers",
-        items: [
-          { icon: Users, label: "Customer List", path: "/dashboard/customers", roles: ["super_admin", "org_owner", "admin", "cashier", "cashier_agro", "cashier_vet", "accountant"] },
-        ]
-      },
-      {
-        label: "Finance & Accounting",
-        items: [
-          { icon: Receipt, label: "Billing / Invoices", path: "/dashboard/billing", roles: ["super_admin", "org_owner", "admin", "accountant", "finance_manager", "cfo"] },
-          { icon: CreditCard, label: "Credit Payments", path: "/dashboard/credit-payments", roles: ["super_admin", "org_owner", "admin", "accountant"] },
-          { icon: BookOpen, label: "Cashbook", path: "/dashboard/cashbook", roles: ["super_admin", "org_owner", "admin", "accountant"] },
-          { icon: Banknote, label: "Expenses", path: "/dashboard/expenses", roles: ["super_admin", "org_owner", "admin", "accountant"] },
-        ]
-      },
-      {
-        label: "Reports & Logs",
-        items: [
-          { icon: BarChart3, label: "Reports & Analytics", path: "/dashboard/reports", roles: ["super_admin", "org_owner", "admin", "accountant", "finance_manager", "cfo"] },
-          { icon: ShieldCheck, label: "Audit Logs", path: "/dashboard/audit-logs", roles: ["super_admin", "org_owner"] },
-        ]
-      },
-      {
-        label: "Administration",
-        items: [
-          { icon: UserPlus, label: "User Management", path: "/dashboard/users", roles: ["super_admin", "org_owner", "admin", "hr_manager"] },
-        ]
-      }
-    ];
-  } else if (role === "accountant" || role === "finance_manager" || role === "cfo") {
-    return [
-      ...baseMenu,
-      {
-        label: "Finance",
-        items: [
-          { icon: Receipt, label: "Billing & Accounting", path: "/dashboard/billing", roles: ["accountant", "finance_manager", "cfo"] },
-          { icon: CreditCard, label: "Credit Payments", path: "/dashboard/credit-payments", roles: ["accountant"] },
-          { icon: BookOpen, label: "Cashbook", path: "/dashboard/cashbook", roles: ["accountant"] },
-          { icon: Banknote, label: "Expenses", path: "/dashboard/expenses", roles: ["accountant"] },
-          { icon: BarChart3, label: "Reports & Analytics", path: "/dashboard/reports", roles: ["accountant", "finance_manager", "cfo"] },
-        ]
-      }
-    ];
-  } else if (role === "cashier" || role === "cashier_agro" || role === "cashier_vet" || role === "pharmacist") {
-    return [
-      ...baseMenu,
-      {
-        label: "Sales",
-        items: [
-          { icon: Clock, label: "Shift Management", path: "/dashboard/shifts", roles: ["cashier", "cashier_agro", "cashier_vet", "pharmacist"] },
-          { icon: ShoppingCart, label: "Point of Sale", path: "/dashboard/pos", roles: ["cashier", "cashier_agro", "cashier_vet", "pharmacist"] },
-          { icon: Package, label: "Inventory Checks", path: "/dashboard/inventory", roles: ["cashier", "cashier_agro", "cashier_vet", "pharmacist"] },
-          { icon: Users, label: "Customer List", path: "/dashboard/customers", roles: ["cashier", "cashier_agro", "cashier_vet", "pharmacist"] },
-        ]
-      }
-    ];
-  }
-
-  return baseMenu;
-};
+const accountLinks = [
+  { icon: Users, label: "Profile Setting", path: "/dashboard/settings?tab=profile" },
+  { icon: Bell, label: "Notification Preferences", path: "/dashboard/settings?tab=notifications" },
+];
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [orgType, setOrgType] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut, user, userRole, isAgrovetOrg } = useAuth();
+  const resolvedRoleId = Number((user as any)?.role_id ?? (user as any)?.roleId ?? 0);
+  const currentTab = new URLSearchParams(location.search).get("tab");
+  const dashboardScope = getDashboardScope(userRole, resolvedRoleId, isAgrovetOrg);
 
   useEffect(() => {
-    // Offline detection
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Get current session
-    const session = localDB.session.get();
-    if (session?.organizationId) {
-      const org = localDB.organizations.getById(session.organizationId);
-      if (org) {
-        setOrgType(org.type);
-        setUserRole(session.userRole);
-        // Ensure demo data is seeded for this organization
-        localDB.initDemoData(session.organizationId);
-      }
-    }
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -174,17 +62,46 @@ export default function DashboardLayout() {
     navigate("/login");
   };
 
+  const getRoleLabelString = () => {
+    if (dashboardScope === "super_admin") return "Super Admin";
+    if (dashboardScope === "administrator") {
+      const u = user as any;
+      const orgIdStr = u?.organizationId || u?.organization_id || u?.organization?.id;
+      const branchStr = u?.branch || u?.branchId || u?.branch_id || u?.branch?.name;
+
+      if (branchStr) return `Administrator - Branch ${branchStr}`;
+      if (orgIdStr) return `Administrator - Organization ${orgIdStr}`;
+      return "Administrator";
+    }
+    if (dashboardScope === "agrovet_owner") return "Owner";
+    if (dashboardScope === "agrovet_accountant") return "Accountant";
+    if (dashboardScope === "agrovet_cashier") return userRole === "cashier_vet" ? "Cashier - Vet" : "Cashier - Agro";
+    return "Workspace";
+  };
+
+  const sections = getSidebarSections(dashboardScope);
+
   const getPageTitle = (path: string) => {
-    const allItems = getMenuForRole(userRole).flatMap(m => m.items);
-    const item = allItems.find(i => i.path === path);
+    const allItems = sections.flatMap((m) => m.items);
+    const item = allItems.find((i) => i.path === path);
     if (item) return item.label;
-    return "MEDICARE ONE";
+    return "Dashboard";
+  };
+
+  const isActivePath = (path: string) => location.pathname === path || (path !== "/dashboard" && location.pathname.startsWith(path));
+
+  const isAccountItemActive = (path: string) => {
+    const basePath = path.split("?")[0];
+    if (basePath !== "/dashboard/settings") return isActivePath(basePath);
+    if (path.includes("tab=profile")) return location.pathname === "/dashboard/settings" && currentTab === "profile";
+    if (path.includes("tab=notifications")) return location.pathname === "/dashboard/settings" && currentTab === "notifications";
+    return location.pathname === "/dashboard/settings";
   };
 
   return (
     <div className="flex min-h-screen bg-[#f5fbfb]">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-[#dcebf0] bg-[#0aa9ad] text-white transition-transform duration-300 lg:static lg:translate-x-0 lg:flex-shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-[#dcebf0] bg-[#0aa9ad] text-white transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:flex-shrink-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -201,7 +118,11 @@ export default function DashboardLayout() {
                     MEDICARE ONE
                   </p>
                   <p className="text-[11px] font-semibold text-white/70">
-                    {orgType === "agrovet" ? "Agrovet Operations" : "Healthcare Operations"}
+                    {dashboardScope === "super_admin"
+                      ? "Global platform control"
+                      : isAgrovetOrg
+                        ? "Agrovet Operations"
+                        : "Healthcare Operations"}
                   </p>
                 </div>
               </Link>
@@ -216,7 +137,7 @@ export default function DashboardLayout() {
           </div>
 
           <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-            {getMenuForRole(userRole).map((group, groupIdx) => (
+            {sections.map((group, groupIdx) => (
               <div key={groupIdx}>
                 <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-white/55">
                   {group.label}
@@ -224,9 +145,7 @@ export default function DashboardLayout() {
 
                 <div className="space-y-1">
                   {group.items.map((item, itemIdx) => {
-                    const active =
-                      location.pathname === item.path ||
-                      (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
+                    const active = isActivePath(item.path);
 
                     return (
                       <Link
@@ -256,13 +175,53 @@ export default function DashboardLayout() {
             ))}
           </nav>
 
-          <div className="border-t border-white/15 p-3">
+          <div className="border-t border-white/15 px-3 py-3 space-y-2">
+            <div>
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className={`flex w-full items-center justify-between rounded-[1rem] px-3 py-2.5 text-sm font-bold transition ${
+                  settingsOpen ? "bg-white/10 text-white" : "text-white/78 hover:bg-white/12 hover:text-white"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Settings size={18} className={settingsOpen ? "text-white" : "text-white/65"} />
+                  Settings
+                </span>
+                {settingsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+
+              {settingsOpen && (
+                <div className="mt-1 space-y-1 pl-4">
+                  {accountLinks.map((item) => {
+                    const active = isAccountItemActive(item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center justify-between rounded-[1rem] px-3 py-2.5 text-sm font-bold transition ${
+                          active
+                            ? "bg-white text-[#07969a] shadow-lg shadow-teal-950/10"
+                            : "text-white/78 hover:bg-white/12 hover:text-white"
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <item.icon size={18} className={active ? "text-[#07969a]" : "text-white/65"} />
+                          {item.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-sm font-bold text-white/78 transition hover:bg-white/12 hover:text-white"
+              className="mt-2 flex w-full items-center gap-3 rounded-[1rem] px-3 py-2.5 text-sm font-bold text-white/78 transition hover:bg-white/12 hover:text-white"
             >
               <LogOut size={18} />
-              Sign Out
+              Logout
             </button>
           </div>
         </div>
@@ -285,23 +244,22 @@ export default function DashboardLayout() {
               <Menu size={22} />
             </button>
 
-            <div className="min-w-0 flex items-center gap-4">
-              <p className="truncate font-heading text-sm font-extrabold text-[#09111f] hidden sm:block">
-                {getPageTitle(location.pathname)}
-              </p>
-              
-              {/* Cloud / Offline Indicator */}
-              <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                isOnline ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
-              }`}>
-                {isOnline ? <Wifi className="w-3 h-3" /> : <CloudOff className="w-3 h-3" />}
-                {isOnline ? "Cloud Synced" : "Offline Mode"}
+              <div className="min-w-0 flex items-center gap-4">
+                <p className="hidden truncate font-heading text-sm font-extrabold text-[#09111f] sm:block">
+                  {getPageTitle(location.pathname)}
+                </p>
+
+              <div className="hidden md:flex items-center gap-1.5 rounded-full border border-[#dcebf0] bg-[#f4fbfb] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0aa9ad]">
+                {getRoleLabelString()}
               </div>
 
-              {/* Subscription Badge */}
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-amber-50 text-amber-700 border-amber-200">
-                 <Clock className="w-3 h-3" />
-                 14 Days Left
+              <div
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                  isOnline ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
+                }`}
+              >
+                {isOnline ? <Wifi className="w-3 h-3" /> : <CloudOff className="w-3 h-3" />}
+                {isOnline ? "Cloud Synced" : "Offline Mode"}
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Building2, Plus, Edit, Trash2, Loader2, MoreHorizontal, CheckCircle2, XCircle,
   Eye, Mail, Phone, Globe, MapPin, FileText, Hash, BadgeCheck, Calendar, Tags,
-  Home, ChevronRight, PlusCircle,
+  Home, ChevronRight, PlusCircle, Zap, Warehouse, Users,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -32,8 +32,9 @@ import { AdvancedDataTable, type BulkActionOption } from "@/components/shared/Ad
 
 const isActiveStatus = (status?: string) => String(status ?? "").toLowerCase() === "active" || String(status ?? "") === "";
 
-// --- Premium KPI card ---
-type KpiAccent = "teal" | "emerald" | "indigo" | "slate";
+// --- Stat card (reference "Maisha Clients" style): soft icon tile on the left,
+// colored title, big number, small sub-label. White card, colored accent. ---
+type KpiAccent = "violet" | "blue" | "emerald" | "amber" | "rose" | "slate";
 interface KpiCardDef {
   title: string;
   value: number;
@@ -42,64 +43,33 @@ interface KpiCardDef {
   accent: KpiAccent;
 }
 
-// Each card carries a distinct soft-colored background + matching border and a
-// solid icon chip, so the four KPIs read as clearly different at a glance.
-const kpiAccent: Record<KpiAccent, { card: string; title: string; value: string; hint: string; icon: string; blob: string }> = {
-  teal: {
-    card: "bg-gradient-to-br from-teal-50 to-cyan-50/60 border-teal-100",
-    title: "text-teal-700/80",
-    value: "text-teal-950",
-    hint: "text-teal-600/70",
-    icon: "bg-[#0aa9ad] text-white",
-    blob: "bg-teal-300/30",
-  },
-  emerald: {
-    card: "bg-gradient-to-br from-emerald-50 to-green-50/60 border-emerald-100",
-    title: "text-emerald-700/80",
-    value: "text-emerald-950",
-    hint: "text-emerald-600/70",
-    icon: "bg-emerald-500 text-white",
-    blob: "bg-emerald-300/30",
-  },
-  indigo: {
-    card: "bg-gradient-to-br from-indigo-50 to-violet-50/60 border-indigo-100",
-    title: "text-indigo-700/80",
-    value: "text-indigo-950",
-    hint: "text-indigo-600/70",
-    icon: "bg-indigo-500 text-white",
-    blob: "bg-indigo-300/30",
-  },
-  slate: {
-    card: "bg-gradient-to-br from-slate-50 to-slate-100/60 border-slate-200",
-    title: "text-slate-600",
-    value: "text-slate-900",
-    hint: "text-slate-500",
-    icon: "bg-slate-500 text-white",
-    blob: "bg-slate-300/30",
-  },
+const kpiAccent: Record<KpiAccent, { tile: string; title: string; bar: string }> = {
+  violet: { tile: "bg-violet-100 text-violet-600", title: "text-violet-600", bar: "from-violet-400/50" },
+  blue: { tile: "bg-blue-100 text-blue-600", title: "text-blue-600", bar: "from-blue-400/50" },
+  emerald: { tile: "bg-emerald-100 text-emerald-600", title: "text-emerald-600", bar: "from-emerald-400/50" },
+  amber: { tile: "bg-amber-100 text-amber-600", title: "text-amber-600", bar: "from-amber-400/50" },
+  rose: { tile: "bg-rose-100 text-rose-500", title: "text-rose-500", bar: "from-rose-400/50" },
+  slate: { tile: "bg-slate-100 text-slate-600", title: "text-slate-600", bar: "from-slate-400/50" },
 };
 
 function PremiumKpiCard({ kpi }: { kpi: KpiCardDef }) {
   const a = kpiAccent[kpi.accent];
   return (
-    <Card
-      className={`group relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${a.card}`}
-    >
-      {/* decorative blob */}
-      <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl ${a.blob}`} />
-      <CardContent className="relative p-5">
-        <div className="flex items-start justify-between gap-4">
+    <Card className="group relative overflow-hidden rounded-2xl border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105 ${a.tile}`}>
+            <kpi.icon className="h-6 w-6" />
+          </div>
           <div className="min-w-0">
-            <p className={`text-xs font-bold uppercase tracking-[0.12em] ${a.title}`}>{kpi.title}</p>
-            <p className={`mt-3 text-3xl font-black leading-none tracking-tight tabular-nums ${a.value}`}>
+            <p className={`text-sm font-bold ${a.title}`}>{kpi.title}</p>
+            <p className="text-3xl font-black leading-tight tracking-tight text-slate-900 tabular-nums">
               {kpi.value.toLocaleString()}
             </p>
-            <p className={`mt-2 truncate text-xs font-medium ${a.hint}`}>{kpi.hint}</p>
-          </div>
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${a.icon}`}>
-            <kpi.icon className="h-5 w-5" />
           </div>
         </div>
+        <p className="mt-3 truncate text-xs font-medium text-slate-400">{kpi.hint}</p>
+        <div className={`mt-2 h-0.5 w-full rounded-full bg-gradient-to-r to-transparent ${a.bar}`} />
       </CardContent>
     </Card>
   );
@@ -260,20 +230,22 @@ export default function OrganizationsPage() {
       <Badge className="border-none bg-slate-100 text-slate-600 hover:bg-slate-200">Inactive</Badge>
     );
 
-  // Premium KPI cards above the table - a quick overview of the tenant base.
+  // Stat cards above the table - a quick overview of the tenant base (all live).
   const totalOrgs = organizations.length;
   const activeOrgs = organizations.filter((o: any) => isActiveStatus(o.status)).length;
   const inactiveOrgs = totalOrgs - activeOrgs;
+  const pendingOrgs = organizations.filter((o: any) => String(o.status ?? "").toLowerCase() === "pending").length;
   const distinctTypes = new Set(
     organizations.map((o: any) => String(o.type || "healthcare").toLowerCase())
   ).size;
   const activeRate = totalOrgs > 0 ? Math.round((activeOrgs / totalOrgs) * 100) : 0;
 
   const kpiCards: KpiCardDef[] = [
-    { title: "Total Organizations", value: totalOrgs, hint: "All tenants on the platform", icon: Building2, accent: "teal" },
-    { title: "Active", value: activeOrgs, hint: `${activeRate}% of all organizations`, icon: CheckCircle2, accent: "emerald" },
-    { title: "Inactive", value: inactiveOrgs, hint: "Not currently live", icon: XCircle, accent: "slate" },
-    { title: "Organization Types", value: distinctTypes, hint: "Distinct tenant categories", icon: Tags, accent: "indigo" },
+    { title: "Total Organizations", value: totalOrgs, hint: "All registered tenants", icon: Building2, accent: "violet" },
+    { title: "Active", value: activeOrgs, hint: `${activeRate}% currently active`, icon: CheckCircle2, accent: "blue" },
+    { title: "Inactive", value: inactiveOrgs, hint: "Not currently live", icon: XCircle, accent: "amber" },
+    { title: "Pending", value: pendingOrgs, hint: "Awaiting approval", icon: BadgeCheck, accent: "rose" },
+    { title: "Types", value: distinctTypes, hint: "Distinct categories", icon: Tags, accent: "emerald" },
   ];
 
   return (
@@ -296,22 +268,41 @@ export default function OrganizationsPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        {/* Title row */}
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        {/* Title row + Quick Actions */}
+        <div className="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
             <h1 className="font-display text-[28px] font-extrabold tracking-tight text-slate-900">Organizations</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage all tenant organizations on the platform.</p>
+            <p className="mt-1 text-sm text-slate-500">Manage all tenant organizations, track status and types.</p>
           </div>
-          <Button
-            onClick={() => navigate("/dashboard/organizations/add")}
-            className="group h-11 gap-2 rounded-xl bg-[#0aa9ad] px-5 font-semibold text-white shadow-sm shadow-[#0aa9ad]/20 transition-all hover:bg-[#07969a] hover:shadow-md"
-          >
-            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" /> New Organization
-          </Button>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            <span className="hidden items-center gap-1.5 pl-2 pr-1 text-xs font-bold uppercase tracking-wide text-slate-400 sm:flex">
+              <Zap className="h-3.5 w-3.5 text-amber-500" /> Quick Actions
+            </span>
+            <Button size="sm" className="h-9 gap-1.5 rounded-xl bg-[#0aa9ad] px-3 font-semibold text-white hover:bg-[#07969a]">
+              <Building2 className="h-4 w-4" /> Organizations
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/dashboard/branches")} className="h-9 gap-1.5 rounded-xl border-slate-200 px-3 font-semibold text-slate-600 hover:bg-slate-50">
+              <Warehouse className="h-4 w-4" /> Branches
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/dashboard/users")} className="h-9 gap-1.5 rounded-xl border-slate-200 px-3 font-semibold text-slate-600 hover:bg-slate-50">
+              <Users className="h-4 w-4" /> Users
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/dashboard/organization-types")} className="h-9 gap-1.5 rounded-xl border-slate-200 px-3 font-semibold text-slate-600 hover:bg-slate-50">
+              <Tags className="h-4 w-4" /> Types
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate("/dashboard/organizations/add")}
+              className="group h-9 gap-1.5 rounded-xl bg-slate-900 px-3 font-semibold text-white hover:bg-slate-800"
+            >
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" /> Add Organization
+            </Button>
+          </div>
         </div>
 
-        {/* Premium KPI cards */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Stat cards */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {kpiCards.map((kpi) => (
             <PremiumKpiCard key={kpi.title} kpi={kpi} />
           ))}
@@ -346,6 +337,7 @@ export default function OrganizationsPage() {
                     />
                   </TableHead>
                 )}
+                <TableHead className="w-14 font-bold text-slate-600">No.</TableHead>
                 <TableHead className="w-[300px] font-bold text-slate-600">Organization</TableHead>
                 <TableHead className="font-bold text-slate-600">Type</TableHead>
                 <TableHead className="font-bold text-slate-600">Contact</TableHead>
@@ -355,7 +347,7 @@ export default function OrganizationsPage() {
             </TableHeader>
             <TableBody>
               {paginatedData.length > 0 ? (
-                paginatedData.map((row: any) => {
+                paginatedData.map((row: any, rowIdx: number) => {
                   const org = organizations.find((o: any) => String(o.id) === String(row.id)) || row;
                   return (
                     <TableRow key={org.id} className="border-slate-100 transition-colors hover:bg-slate-50/50">
@@ -368,6 +360,7 @@ export default function OrganizationsPage() {
                           />
                         </TableCell>
                       )}
+                      <TableCell className="text-sm font-semibold text-slate-400 tabular-nums">{rowIdx + 1}</TableCell>
                       <TableCell className="font-medium">
                         <button
                           type="button"
@@ -441,7 +434,7 @@ export default function OrganizationsPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={selection ? 6 : 5} className="h-24 text-center text-slate-500">
+                  <TableCell colSpan={selection ? 7 : 6} className="h-24 text-center text-slate-500">
                     No organizations found.
                   </TableCell>
                 </TableRow>

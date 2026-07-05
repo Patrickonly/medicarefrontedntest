@@ -56,12 +56,12 @@ export default function LandingNavbar() {
             </Button>
           </Link>
 
-          <Link to="/contact">
+          <Link to="/register">
             <Button
               size="sm"
               className="h-11 rounded-full bg-gradient-to-r from-[#10bfc2] to-[#078f94] px-7 text-[13px] font-extrabold text-white shadow-lg shadow-cyan-500/20 hover:from-[#0aaeb1] hover:to-[#067f83]"
             >
-              Contact Us
+              Sign Up
             </Button>
           </Link>
         </div>
@@ -102,9 +102,9 @@ export default function LandingNavbar() {
                   </Button>
                 </Link>
 
-                <Link to="/contact">
+                <Link to="/register">
                   <Button className="w-full rounded-full bg-gradient-to-r from-[#10bfc2] to-[#078f94] font-extrabold text-white">
-                    Contact Us
+                    Sign Up
                   </Button>
                 </Link>
               </div>

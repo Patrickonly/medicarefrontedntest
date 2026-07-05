@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import {
   Building2, Stethoscope, UserRound, Loader2, Plus, LogIn,
   ShieldCheck, Briefcase, Pill, FlaskConical, HeartPulse,
@@ -39,8 +39,9 @@ const ROLE_ROUTES: Record<string, string> = {
 };
 
 export default function OnboardingPage() {
-  const { user, refreshRole } = useAuth();
+  const { success, error } = useToast();
   const navigate = useNavigate();
+  const { user, refreshRole } = useAuth();
   const [step, setStep] = useState<OnboardingStep>("choice");
   const [loading, setLoading] = useState(false);
 
@@ -59,50 +60,54 @@ export default function OnboardingPage() {
     name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) + Math.floor(1000 + Math.random() * 9000);
 
   const handleCreateOrg = async () => {
-    if (!orgName.trim()) { toast.error("Organization name is required"); return; }
+    if (!orgName.trim()) { error("Error", "Organization name is required"); return; }
     if (!user) return;
     setLoading(true);
     try {
       const code = generateCode(orgName);
-      const { data: org, error: orgErr } = await supabase
-        .from("organizations")
-        .insert({ name: orgName, code, type: orgType as any, address_city: orgCity || null, phone: orgPhone || null })
-        .select("id")
-        .single();
-      if (orgErr) throw orgErr;
+      
+      const orgRes = await api.post<{ data: { id: string } }>("/api/organizations", {
+        name: orgName,
+        code,
+        type: orgType,
+        address_city: orgCity || null,
+        phone: orgPhone || null
+      });
+      const orgId = orgRes.data?.id || (orgRes as any).id;
+      
+      await api.post("/api/user_roles", {
+        user_id: user.id,
+        role: "org_owner",
+        organization_id: orgId,
+        is_active: true
+      });
 
-      const { error: roleErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "org_owner" as any, organization_id: org.id, is_active: true });
-      if (roleErr) throw roleErr;
-
-      await refreshRole(true);
-      toast.success(`Organization "${orgName}" created! You are the owner.`);
+      await refreshRole();
+      success("Success", `Organization "${orgName}" created! You are the owner.`);
       navigate("/dashboard");
     } catch (err: any) {
-      toast.error(err.message || "Failed to create organization");
+      error("Error", err.message || "Failed to create organization");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearchOrg = async () => {
-    if (!orgCode.trim()) { toast.error("Enter an organization code"); return; }
+    if (!orgCode.trim()) { error("Error", "Enter an organization code"); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("organizations")
-      .select("id, name")
-      .eq("code", orgCode.trim().toUpperCase())
-      .eq("is_active", true)
-      .limit(1)
-      .single();
-    setLoading(false);
-    if (error || !data) {
-      toast.error("Organization not found. Check the code and try again.");
-      setFoundOrg(null);
-    } else {
-      setFoundOrg(data);
+    try {
+      const res = await api.get<{ data: { id: string; name: string } }>(
+        `/api/organizations?code=${orgCode.trim().toUpperCase()}&is_active=true`
+      );
+      setLoading(false);
+      const data = res.data;
+      if (!data) throw new Error("Not found");
+      setFoundOrg(data as any);
       setStep("select_role");
+    } catch (err) {
+      setLoading(false);
+      error("Error", "Organization not found. Check the code and try again.");
+      setFoundOrg(null);
     }
   };
 
@@ -110,15 +115,17 @@ export default function OnboardingPage() {
     if (!selectedRole || !foundOrg || !user) return;
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: selectedRole as any, organization_id: foundOrg.id, is_active: true });
-      if (error) throw error;
-      await refreshRole(true);
-      toast.success(`Joined "${foundOrg.name}" as ${selectedRole.replace("_", " ")}`);
+      await api.post("/api/user_roles", {
+        user_id: user.id,
+        role: selectedRole,
+        organization_id: foundOrg.id,
+        is_active: true
+      });
+      await refreshRole();
+      success(`Joined "${foundOrg.name}" as ${selectedRole.replace("_", " ")}`);
       navigate(ROLE_ROUTES[selectedRole] || ROLE_ROUTES.default);
     } catch (err: any) {
-      toast.error(err.message || "Failed to join organization");
+      error("Error", err.message || "Failed to join organization");
     } finally {
       setLoading(false);
     }
@@ -128,16 +135,17 @@ export default function OnboardingPage() {
     if (!user) return;
     setLoading(true);
     try {
-      // Assign patient role with no org — patients are cross-org
-      const { error } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "patient" as any, is_active: true });
-      if (error) throw error;
-      await refreshRole(true);
-      toast.success("Patient account set up!");
+      // Assign patient role with no org - patients are cross-org
+      await api.post("/api/user_roles", {
+        user_id: user.id,
+        role: "patient",
+        is_active: true
+      });
+      await refreshRole();
+      success("Success", "Patient account set up!");
       navigate("/patient");
     } catch (err: any) {
-      toast.error(err.message || "Failed to set up patient account");
+      error("Error", err.message || "Failed to set up patient account");
     } finally {
       setLoading(false);
     }
@@ -319,3 +327,5 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
+

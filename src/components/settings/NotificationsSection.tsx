@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2, Bell, Mail, MessageSquare, Smartphone } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { api } from "@/lib/api";
+import { ArrowLeft, Bell, Loader2, Mail, Save, Smartphone } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface NotificationPrefs {
   email_appointments: boolean;
@@ -47,6 +47,7 @@ interface Props {
 }
 
 export default function NotificationsSection({ onBack }: Props) {
+  const { success, error: toastError } = useToast();
   const { organizationId } = useAuth();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
@@ -55,33 +56,36 @@ export default function NotificationsSection({ onBack }: Props) {
   useEffect(() => {
     if (!organizationId) return;
     (async () => {
-      const { data } = await supabase
-        .from("organizations")
-        .select("settings")
-        .eq("id", organizationId)
-        .single();
-      if (data?.settings && typeof data.settings === "object" && "notifications" in (data.settings as Record<string, unknown>)) {
-        setPrefs({ ...DEFAULT_PREFS, ...((data.settings as Record<string, unknown>).notifications as Partial<NotificationPrefs>) });
+      try {
+        const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+        const settings = res.data?.settings;
+        if (settings && typeof settings === "object" && "notifications" in settings) {
+          setPrefs({ ...DEFAULT_PREFS, ...((settings.notifications as Partial<NotificationPrefs>) ?? {}) });
+        }
+      } catch (fetchError: any) {
+        toastError("Error", fetchError.message || "Failed to load notification preferences");
+      } finally {
+        setLoaded(true);
       }
-      setLoaded(true);
     })();
-  }, [organizationId]);
+  }, [organizationId, toastError]);
 
   const toggle = (key: keyof NotificationPrefs) => setPrefs((p) => ({ ...p, [key]: !p[key] }));
 
   const handleSave = async () => {
     if (!organizationId) return;
     setSaving(true);
-    const { data: org } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    const existing = (org?.settings && typeof org.settings === "object" ? org.settings : {}) as Record<string, unknown>;
-    const merged = { ...existing, notifications: JSON.parse(JSON.stringify(prefs)) };
-    const { error } = await supabase
-      .from("organizations")
-      .update({ settings: merged })
-      .eq("id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Notification preferences saved");
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const existing = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      const merged = { ...existing, notifications: JSON.parse(JSON.stringify(prefs)) };
+      await api.put(`/api/organizations?id=${organizationId}`, { settings: merged }, { organizationId });
+      success("Success", "Notification preferences saved");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save notification preferences");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const Row = ({ label, description, checked, onToggle }: { label: string; description: string; checked: boolean; onToggle: () => void }) => (
@@ -166,3 +170,4 @@ export default function NotificationsSection({ onBack }: Props) {
     </div>
   );
 }
+

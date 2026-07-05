@@ -1,12 +1,11 @@
 // =====================================================
-// Security event logger — writes to audit_logs via RPC
+// Security event logger — writes to audit_logs via the API
 // =====================================================
-// Wraps `log_security_event` RPC. Call from anywhere we catch a PostgREST
-// 401/403, role-grant attempt, or other security-relevant event. Failures
-// here are swallowed (logging must never break the calling flow), but they
-// emit a console warning in dev.
+// Call from anywhere we catch a 401/403, role-grant attempt, or other
+// security-relevant event. Failures here are swallowed (logging must never
+// break the calling flow), but they emit a console warning in dev.
 
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 
 export type SecurityRisk = "low" | "medium" | "high" | "critical";
 
@@ -26,18 +25,14 @@ export async function logSecurityEvent(evt: SecurityEventInput): Promise<string 
     return null;
   }
   try {
-    const { data, error } = await supabase.rpc("log_security_event", {
-      _action: evt.action,
-      _resource_type: evt.resourceType,
-      _resource_id: evt.resourceId ?? "",
-      _details: (evt.details ?? {}) as never,
-      _risk_level: evt.risk ?? "medium",
-    } as never);
-    if (error) {
-      if (import.meta.env.DEV) console.warn("[securityLogger] rpc error:", error.message);
-      return null;
-    }
-    return (data as unknown as string) ?? null;
+    const res = await api.post<{ success: boolean; data: { id: string } }>("/api/audit-logs", {
+      action: evt.action,
+      resource_type: evt.resourceType,
+      resource_id: evt.resourceId ?? "",
+      details: evt.details ?? {},
+      risk_level: evt.risk ?? "medium",
+    });
+    return res.data?.id ?? null;
   } catch (e) {
     if (import.meta.env.DEV) console.warn("[securityLogger] threw:", e);
     return null;
@@ -45,8 +40,8 @@ export async function logSecurityEvent(evt: SecurityEventInput): Promise<string 
 }
 
 /**
- * Inspect a PostgREST error and, if it looks like an access-denied / RLS
- * rejection, log it. Returns true when an event was emitted.
+ * Inspect an API error and, if it looks like an access-denied rejection,
+ * log it. Returns true when an event was emitted.
  */
 export async function logIfAccessDenied(
   error: { code?: string; message?: string; status?: number } | null | undefined,

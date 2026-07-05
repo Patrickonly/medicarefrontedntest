@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Upload, Trash2, Save, Loader2, Sun, Moon, Monitor, Palette,
 } from "lucide-react";
@@ -25,6 +25,7 @@ const COLOR_PRESETS = [
 type ThemeMode = "light" | "dark" | "system";
 
 export default function AppearanceSection({ onBack }: AppearanceProps) {
+  const { success, error: toastError } = useToast();
   const { organizationId, userRole } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -40,71 +41,70 @@ export default function AppearanceSection({ onBack }: AppearanceProps) {
     if (organizationId) fetchSettings();
   }, [organizationId]);
 
-  const refreshSignedLogo = async (path: string) => {
-    const { data } = await supabase.storage.from("org-logos").createSignedUrl(path, 60 * 60 * 24 * 7);
-    if (data?.signedUrl) setLogoUrl(data.signedUrl);
-  };
-
   const fetchSettings = async () => {
     if (!organizationId) return;
-    const { data } = await supabase.from("organizations").select("logo_url, settings").eq("id", organizationId).single();
-    if (data) {
-      // logo_url stored as the storage path (e.g. orgId/logo.png) — generate signed URL on demand
-      if (data.logo_url) {
-        if (data.logo_url.startsWith("http")) {
-          // legacy public URL — extract path after /org-logos/
-          const match = data.logo_url.match(/\/org-logos\/(.+?)(?:\?|$)/);
-          if (match) await refreshSignedLogo(match[1]);
-          else setLogoUrl(data.logo_url);
-        } else {
-          await refreshSignedLogo(data.logo_url);
+    try {
+      const res = await api.get<{ success: boolean; data: { logoUrl?: string; logo_url?: string; settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const data = res.data;
+      if (data) {
+        setLogoUrl(data.logoUrl || data.logo_url || null);
+        const s = data.settings;
+        if (s?.theme) setTheme(s.theme as ThemeMode);
+        if (s?.primary_color) {
+          setPrimaryColor(s.primary_color as string);
+          setCustomColor(s.primary_color as string);
         }
       }
-      const s = data.settings as Record<string, unknown> | null;
-      if (s?.theme) setTheme(s.theme as ThemeMode);
-      if (s?.primary_color) {
-        setPrimaryColor(s.primary_color as string);
-        setCustomColor(s.primary_color as string);
-      }
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load appearance settings");
     }
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !organizationId || !isOwnerOrAdmin) return;
-    if (file.size > 2 * 1024 * 1024) { toast.error("Logo must be under 2MB"); return; }
+    if (file.size > 2 * 1024 * 1024) { toastError("Error", "Logo must be under 2MB"); return; }
 
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${organizationId}/logo.${ext}`;
-
-    const { error: uploadErr } = await supabase.storage.from("org-logos").upload(path, file, { upsert: true });
-    if (uploadErr) { toast.error(uploadErr.message); setUploading(false); return; }
-
-    const { error: updateErr } = await supabase.from("organizations").update({ logo_url: path }).eq("id", organizationId);
-    setUploading(false);
-    if (updateErr) toast.error(updateErr.message);
-    else { await refreshSignedLogo(path); toast.success("Logo uploaded"); }
+    try {
+      const uploadRes = await api.upload<{ success: boolean; data: { url: string } }>("/api/uploads", file);
+      const url = uploadRes.data.url;
+      await api.put(`/api/organizations?id=${organizationId}`, { logoUrl: url }, { organizationId });
+      setLogoUrl(url);
+      success("Success", "Logo uploaded");
+    } catch (uploadError: any) {
+      toastError("Error", uploadError.message || "Failed to upload logo");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleRemoveLogo = async () => {
     if (!organizationId || !isOwnerOrAdmin) return;
-    await supabase.from("organizations").update({ logo_url: null }).eq("id", organizationId);
-    setLogoUrl(null);
-    toast.success("Logo removed");
+    try {
+      await api.put(`/api/organizations?id=${organizationId}`, { logoUrl: null }, { organizationId });
+      setLogoUrl(null);
+      success("Success", "Logo removed");
+    } catch (removeError: any) {
+      toastError("Error", removeError.message || "Failed to remove logo");
+    }
   };
 
   const handleSave = async () => {
     if (!organizationId || !isOwnerOrAdmin) return;
     setSaving(true);
-    const { data: org } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    const existing = (org?.settings as Record<string, unknown>) || {};
-    const { error } = await supabase.from("organizations").update({
-      settings: { ...existing, theme, primary_color: primaryColor },
-    }).eq("id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Appearance settings saved");
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const existing = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      await api.put(`/api/organizations?id=${organizationId}`, {
+        settings: { ...existing, theme, primary_color: primaryColor },
+      }, { organizationId });
+      success("Success", "Appearance settings saved");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save appearance settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

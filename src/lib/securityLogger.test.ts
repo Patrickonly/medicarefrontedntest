@@ -1,26 +1,26 @@
 // Unit tests for the security event logger and access-denied detection.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const rpcMock = vi.fn();
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: (...args: unknown[]) => rpcMock(...args) },
+const postMock = vi.fn();
+vi.mock("@/lib/api", () => ({
+  api: { post: (...args: unknown[]) => postMock(...args) },
 }));
 
 import { logSecurityEvent, logIfAccessDenied } from "./securityLogger";
 
 beforeEach(() => {
-  rpcMock.mockReset();
-  rpcMock.mockResolvedValue({ data: "evt-1", error: null });
+  postMock.mockReset();
+  postMock.mockResolvedValue({ success: true, data: { id: "evt-1" } });
 });
 
 describe("logSecurityEvent", () => {
-  it("rejects invalid action strings without calling RPC", async () => {
+  it("rejects invalid action strings without calling the API", async () => {
     const id = await logSecurityEvent({ action: "BAD ACTION!!", resourceType: "x" });
     expect(id).toBeNull();
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(postMock).not.toHaveBeenCalled();
   });
 
-  it("invokes log_security_event RPC with normalized payload", async () => {
+  it("posts to /api/audit-logs with normalized payload", async () => {
     const id = await logSecurityEvent({
       action: "access_denied",
       resourceType: "patients",
@@ -29,16 +29,16 @@ describe("logSecurityEvent", () => {
       risk: "high",
     });
     expect(id).toBe("evt-1");
-    expect(rpcMock).toHaveBeenCalledWith("log_security_event", expect.objectContaining({
-      _action: "access_denied",
-      _resource_type: "patients",
-      _resource_id: "p-123",
-      _risk_level: "high",
+    expect(postMock).toHaveBeenCalledWith("/api/audit-logs", expect.objectContaining({
+      action: "access_denied",
+      resource_type: "patients",
+      resource_id: "p-123",
+      risk_level: "high",
     }));
   });
 
-  it("swallows RPC errors and returns null", async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: { message: "nope" } });
+  it("swallows API errors and returns null", async () => {
+    postMock.mockRejectedValueOnce(new Error("nope"));
     const id = await logSecurityEvent({ action: "ok_action", resourceType: "x" });
     expect(id).toBeNull();
   });
@@ -47,13 +47,13 @@ describe("logSecurityEvent", () => {
 describe("logIfAccessDenied", () => {
   it("returns false when no error", async () => {
     expect(await logIfAccessDenied(null, { resourceType: "x" })).toBe(false);
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(postMock).not.toHaveBeenCalled();
   });
 
   it("logs on 403 status", async () => {
     const r = await logIfAccessDenied({ status: 403, message: "forbidden" }, { resourceType: "patients", operation: "select" });
     expect(r).toBe(true);
-    expect(rpcMock).toHaveBeenCalled();
+    expect(postMock).toHaveBeenCalled();
   });
 
   it("logs on PG 42501 insufficient_privilege", async () => {
@@ -69,6 +69,6 @@ describe("logIfAccessDenied", () => {
   it("ignores unrelated errors (e.g. validation)", async () => {
     const r = await logIfAccessDenied({ code: "23505", message: "duplicate key" }, { resourceType: "x" });
     expect(r).toBe(false);
-    expect(rpcMock).not.toHaveBeenCalled();
+    expect(postMock).not.toHaveBeenCalled();
   });
 });

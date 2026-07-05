@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2, MonitorSmartphone, Trash2, ShieldCheck, Clock } from "lucide-react";
-import { toast } from "sonner";
 import { getDeviceHash } from "@/lib/trustedDevice";
 import { formatDistanceToNow } from "date-fns";
 
@@ -17,6 +17,7 @@ interface TrustedDevice {
 }
 
 export default function TrustedDevicesSection() {
+  const { success, error: toastError } = useToast();
   const { user } = useAuth();
   const [devices, setDevices] = useState<TrustedDevice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,38 +30,41 @@ export default function TrustedDevicesSection() {
     void getDeviceHash().then(setCurrentHash);
   }, [user]);
 
+  const logAudit = (action: string, details: string, risk: "low" | "medium" = "low") => {
+    api.post("/api/audit-logs", {
+      action,
+      resource_type: "user_account",
+      resource_id: user?.id,
+      risk_level: risk,
+      details,
+    }).catch(() => undefined);
+  };
+
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("trusted_devices")
-      .select("id, device_label, device_hash, created_at, last_seen_at, expires_at")
-      .eq("user_id", user.id)
-      .order("last_seen_at", { ascending: false });
-    setDevices(data || []);
-    setLoading(false);
+    try {
+      const res = await api.get<{ success: boolean; data: TrustedDevice[] }>("/api/trusted-devices");
+      setDevices(res.data || []);
+    } catch {
+      setDevices([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const revoke = async (id: string, label: string | null) => {
     if (!confirm(`Revoke trust for "${label || "this device"}"? It will need to verify TOTP next sign-in.`)) return;
     setWorking(id);
-    const { error } = await supabase.from("trusted_devices").delete().eq("id", id);
-    if (!error && user) {
-      await supabase.from("audit_logs").insert({
-        action: "trusted_device_revoked",
-        user_id: user.id,
-        user_name: user.email,
-        resource_type: "user_account",
-        resource_id: user.id,
-        risk_level: "low",
-        details: `Revoked trusted device: ${label || id}`,
-      });
-    }
-    setWorking(null);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Device revoked");
+    try {
+      await api.delete(`/api/trusted-devices/${id}`);
+      logAudit("trusted_device_revoked", `Revoked trusted device: ${label || id}`);
+      success("Success", "Device revoked");
       void load();
+    } catch (revokeError: any) {
+      toastError("Error", revokeError.message || "Failed to revoke device");
+    } finally {
+      setWorking(null);
     }
   };
 
@@ -68,19 +72,16 @@ export default function TrustedDevicesSection() {
     if (!user || !devices.length) return;
     if (!confirm("Revoke all trusted devices? Every device will need to verify TOTP next sign-in.")) return;
     setWorking("ALL");
-    await supabase.from("trusted_devices").delete().eq("user_id", user.id);
-    await supabase.from("audit_logs").insert({
-      action: "trusted_devices_cleared",
-      user_id: user.id,
-      user_name: user.email,
-      resource_type: "user_account",
-      resource_id: user.id,
-      risk_level: "medium",
-      details: `Cleared all ${devices.length} trusted devices`,
-    });
-    setWorking(null);
-    toast.success("All trusted devices revoked");
-    void load();
+    try {
+      await api.delete("/api/trusted-devices");
+      logAudit("trusted_devices_cleared", `Cleared all ${devices.length} trusted devices`, "medium");
+      success("Success", "All trusted devices revoked");
+      void load();
+    } catch (revokeError: any) {
+      toastError("Error", revokeError.message || "Failed to revoke devices");
+    } finally {
+      setWorking(null);
+    }
   };
 
   if (loading) {

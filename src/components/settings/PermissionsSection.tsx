@@ -1,28 +1,27 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
   Shield, Loader2, Save, ArrowLeft, ChevronDown, ChevronRight,
   UserCheck, AlertTriangle,
 } from "lucide-react";
 import { ROLE_LABELS, ROLE_HIERARCHY, canGrantRole } from "@/types/rbac";
-import type { Database } from "@/integrations/supabase/types";
-
-type AppRole = Database["public"]["Enums"]["app_role"];
+import type { UserRole } from "@/types/models";
+import { fetchRoleOptions, type RoleOption } from "@/lib/roleDirectory";
 
 interface MemberWithProfile {
   id: string;
-  user_id: string;
-  role: AppRole;
+  role: UserRole;
   is_active: boolean;
   granted_at: string;
   first_name: string;
   last_name: string;
+  role_id?: string;
 }
 
-const ASSIGNABLE_ROLES: AppRole[] = [
+const ASSIGNABLE_ROLES: UserRole[] = [
   "admin", "director", "medical_director", "dept_head",
   "doctor", "nurse", "receptionist", "pharmacist",
   "cashier", "accountant", "hr_manager", "storekeeper",
@@ -36,47 +35,46 @@ interface Props {
 }
 
 export default function PermissionsSection({ onBack }: Props) {
+  const { success, error: toastError } = useToast();
   const { user, organizationId, userRole } = useAuth();
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
-  const [roleChanges, setRoleChanges] = useState<Record<string, AppRole>>({});
+  const [roleChanges, setRoleChanges] = useState<Record<string, UserRole>>({});
 
-  const currentUserRole = (userRole || "patient") as AppRole;
+  const currentUserRole = (userRole || "patient") as UserRole;
 
   useEffect(() => {
-    if (organizationId) fetchMembers();
+    if (organizationId) {
+      fetchMembers();
+      fetchRoleOptions().then(setRoleOptions).catch(() => undefined);
+    }
   }, [organizationId]);
 
   const fetchMembers = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("id, user_id, role, is_active, granted_at")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true)
-      .order("granted_at");
-
-    if (roles && roles.length > 0) {
-      const userIds = roles.map((r) => r.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name")
-        .in("id", userIds);
-      const pMap = new Map((profiles || []).map((p) => [p.id, p]));
+    try {
+      const res = await api.get<{ success: boolean; data: any[] }>("/api/users");
+      const users = res.data || [];
       setMembers(
-        roles.map((r) => ({
-          ...r,
-          first_name: pMap.get(r.user_id)?.first_name || "Unknown",
-          last_name: pMap.get(r.user_id)?.last_name || "",
+        users.map((u) => ({
+          id: u.id,
+          role: (u.role?.name || u.role || "patient") as UserRole,
+          role_id: String(u.role_id ?? u.roleId ?? u.role?.id ?? ""),
+          is_active: u.isActive ?? u.is_active ?? true,
+          granted_at: u.createdAt || u.created_at || new Date().toISOString(),
+          first_name: u.firstName || u.first_name || "Unknown",
+          last_name: u.lastName || u.last_name || "",
         }))
       );
-    } else {
-      setMembers([]);
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load members");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRoleChange = async (member: MemberWithProfile) => {
@@ -84,23 +82,26 @@ export default function PermissionsSection({ onBack }: Props) {
     if (!newRole || newRole === member.role) return;
 
     if (!canGrantRole(currentUserRole, newRole)) {
-      toast.error("You cannot assign a role equal to or higher than your own");
+      toastError("Error", "You cannot assign a role equal to or higher than your own");
+      return;
+    }
+
+    const newRoleId = roleOptions.find((r) => r.name === newRole)?.id;
+    if (!newRoleId) {
+      toastError("Error", "Could not resolve the selected role");
       return;
     }
 
     setSaving(member.id);
-    const { error } = await supabase
-      .from("user_roles")
-      .update({ role: newRole })
-      .eq("id", member.id);
-    setSaving(null);
-
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success(`Role updated to ${ROLE_LABELS[newRole] || newRole}`);
+    try {
+      await api.put(`/api/users/${member.id}`, { roleId: newRoleId });
+      success("Success", `Role updated to ${ROLE_LABELS[newRole] || newRole}`);
       setRoleChanges((prev) => { const n = { ...prev }; delete n[member.id]; return n; });
       fetchMembers();
+    } catch (updateError: any) {
+      toastError("Error", updateError.message || "Failed to update role");
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -150,7 +151,7 @@ export default function PermissionsSection({ onBack }: Props) {
         <div className="space-y-2">
           {members.map((m) => {
             const isExpanded = expandedMember === m.id;
-            const isSelf = m.user_id === user?.id;
+            const isSelf = m.id === user?.id;
             const pendingRole = roleChanges[m.id];
             const canEdit = !isSelf && canGrantRole(currentUserRole, m.role);
 
@@ -191,7 +192,7 @@ export default function PermissionsSection({ onBack }: Props) {
                         <select
                           className="medicare-input"
                           value={pendingRole || m.role}
-                          onChange={(e) => setRoleChanges((prev) => ({ ...prev, [m.id]: e.target.value as AppRole }))}
+                          onChange={(e) => setRoleChanges((prev) => ({ ...prev, [m.id]: e.target.value as UserRole }))}
                         >
                           <option value={m.role}>{ROLE_LABELS[m.role] || m.role} (current)</option>
                           {grantableRoles.filter((r) => r !== m.role).map((r) => (

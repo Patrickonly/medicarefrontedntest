@@ -8,8 +8,8 @@ import {
   LogOut,
   Menu,
   Settings,
+  ShieldCheck,
   Users,
-  Wifi,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -176,6 +176,21 @@ export default function DashboardLayout() {
           </nav>
 
           <div className="border-t border-white/15 px-3 py-3 space-y-2">
+            {/* Current role */}
+            <div className="flex items-center gap-3 rounded-[1rem] bg-white/10 px-3 py-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                <ShieldCheck size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-extrabold text-white">
+                  {(user as any)?.first_name || (user as any)?.firstName
+                    ? `${(user as any)?.first_name || (user as any)?.firstName} ${(user as any)?.last_name || (user as any)?.lastName || ""}`.trim()
+                    : "Signed in"}
+                </p>
+                <p className="truncate text-[11px] font-semibold text-white/70">{getRoleLabelString()}</p>
+              </div>
+            </div>
+
             <div>
               <button
                 onClick={() => setSettingsOpen(!settingsOpen)}
@@ -253,14 +268,13 @@ export default function DashboardLayout() {
                 {getRoleLabelString()}
               </div>
 
-              <div
-                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                  isOnline ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
-                }`}
-              >
-                {isOnline ? <Wifi className="w-3 h-3" /> : <CloudOff className="w-3 h-3" />}
-                {isOnline ? "Cloud Synced" : "Offline Mode"}
-              </div>
+              {/* Offline indicator only - "Cloud Synced" pill removed per design. */}
+              {!isOnline && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-red-50 text-red-700 border-red-200">
+                  <CloudOff className="w-3 h-3" />
+                  Offline Mode
+                </div>
+              )}
             </div>
           </div>
 

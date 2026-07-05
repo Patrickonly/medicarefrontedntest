@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Activity, LogIn, KeyRound, ShieldCheck, ShieldAlert, UserCog, Loader2, AlertCircle,
@@ -52,14 +52,14 @@ export default function ActivityLog() {
   const loadActivity = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("audit_logs")
-      .select("id, action, details, ip_address, risk_level, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    setEntries(data || []);
-    setLoading(false);
+    try {
+      const res = await api.get<{ success: boolean; data: AuditEntry[] }>("/api/audit-logs?limit=20");
+      setEntries(res.data || []);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

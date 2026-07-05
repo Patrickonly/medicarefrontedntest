@@ -92,24 +92,40 @@ export default function UsersPage() {
   ];
 
   const handleBulkAction = async (action: BulkActionOption, ids: string[]) => {
-    const body = action.label === "Delete"
-      ? { action: "DELETE", ids }
-      : { action: "STATUS", ids, status: action.status };
-    try {
-      const res = await api.post<{ success: boolean; data: { total: number; succeeded: number; failed: number } }>(
-        "/api/agrovet/bulk/users",
-        body
-      );
-      const { succeeded = 0, failed = 0 } = res.data || {};
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      if (failed > 0) {
-        error("Partially completed", `${succeeded} succeeded, ${failed} failed.`);
-      } else {
-        success("Success", `${action.label} applied to ${succeeded} user${succeeded === 1 ? "" : "s"}.`);
+    // Agrovet tenants have a dedicated bulk endpoint; everyone else (incl. Super
+    // Admin) fans out over the single-row /api/users routes so bulk works too.
+    if (isAgrovetOrg) {
+      const body = action.label === "Delete"
+        ? { action: "DELETE", ids }
+        : { action: "STATUS", ids, status: action.status };
+      try {
+        const res = await api.post<{ success: boolean; data: { total: number; succeeded: number; failed: number } }>(
+          "/api/agrovet/bulk/users",
+          body
+        );
+        const { succeeded = 0, failed = 0 } = res.data || {};
+        queryClient.invalidateQueries({ queryKey: ["users"] });
+        if (failed > 0) error("Partially completed", `${succeeded} succeeded, ${failed} failed.`);
+        else success("Success", `${action.label} applied to ${succeeded} user${succeeded === 1 ? "" : "s"}.`);
+      } catch (err: any) {
+        error("Error", err.message || `Failed to ${action.label.toLowerCase()} selected users`);
       }
-    } catch (err: any) {
-      error("Error", err.message || `Failed to ${action.label.toLowerCase()} selected users`);
+      return;
     }
+
+    const newStatus = action.status === "ACTIVE" ? "active" : "inactive";
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        action.label === "Delete"
+          ? api.delete(`/api/users?id=${id}`)
+          : api.put(`/api/users`, { id, status: newStatus, action: "UPDATE_STATUS" })
+      )
+    );
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - succeeded;
+    queryClient.invalidateQueries({ queryKey: ["users"] });
+    if (failed > 0) error("Partially completed", `${succeeded} succeeded, ${failed} failed.`);
+    else success("Success", `${action.label} applied to ${succeeded} user${succeeded === 1 ? "" : "s"}.`);
   };
 
   const filteredUsers = users.filter((u: any) => {
@@ -204,9 +220,9 @@ export default function UsersPage() {
         onSearchChange={setSearchTerm}
         searchPlaceholder="Search by name, email, or role..."
         isLoading={isLoading}
-        getRowId={isAgrovetOrg ? (u: any) => String(filteredUsers.find(fu => fu.email === u.email)?.id ?? u.email) : undefined}
-        bulkActions={isAgrovetOrg ? bulkActions : undefined}
-        onBulkAction={isAgrovetOrg ? handleBulkAction : undefined}
+        getRowId={(u: any) => String(filteredUsers.find(fu => fu.email === u.email)?.id ?? u.email)}
+        bulkActions={bulkActions}
+        onBulkAction={handleBulkAction}
         renderTable={(paginatedData, selection) => (
           <Table>
             <TableHeader className="bg-slate-50/80">

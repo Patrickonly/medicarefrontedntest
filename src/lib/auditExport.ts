@@ -1,3 +1,5 @@
+import { api } from "@/lib/api";
+
 // Pure helpers for the 2FA audit-trail export feature. Extracted so they can
 // be unit-tested without rendering the TwoFactorGate component.
 
@@ -205,14 +207,7 @@ export const parseExportLogDetails = (text: string | null | undefined): Partial<
   };
 };
 
-// Minimal supabase-shaped client for testing recordExportLog without
-// pulling in the real client.
-export interface AuditLogInserter {
-  from: (table: string) => { insert: (row: Record<string, unknown>) => Promise<{ error: unknown }> | { error: unknown } };
-}
-
 export interface RecordExportLogInput {
-  client: AuditLogInserter;
   userId: string;
   userEmail: string | null | undefined;
   role: string | null | undefined;
@@ -226,11 +221,11 @@ export interface RecordExportLogInput {
  * so the calling UI can degrade gracefully without breaking role gating.
  */
 export const recordExportLog = async (
-  { client, userId, userEmail, role, payload }: RecordExportLogInput,
+  { userId, userEmail, role, payload }: RecordExportLogInput,
 ): Promise<{ logged: boolean; error?: unknown }> => {
   if (!canExportAudit(role)) return { logged: false };
   try {
-    const res = await client.from("audit_logs").insert({
+    const body = {
       action: "2fa_audit_exported",
       user_id: userId,
       user_name: userEmail ?? null,
@@ -238,10 +233,8 @@ export const recordExportLog = async (
       resource_id: userId,
       risk_level: "low",
       details: serializeExportLogDetails(payload),
-    });
-    if (res && (res as { error?: unknown }).error) {
-      return { logged: false, error: (res as { error?: unknown }).error };
-    }
+    };
+    await api.post("/api/audit_logs", body);
     return { logged: true };
   } catch (error) {
     return { logged: false, error };
@@ -272,29 +265,7 @@ export const AUDIT_TIMELINE_ACTIONS = [
   "2fa_audit_exported",
 ] as const;
 
-export interface AuditQueryClient {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, val: unknown) => {
-        in?: (col: string, vals: readonly string[]) => {
-          order: (col: string, opts: { ascending: boolean }) => {
-            limit: (n: number) => Promise<{ data: AuditEntry[] | null; error?: unknown }>;
-          };
-        };
-        eq?: (col: string, val: unknown) => {
-          order: (col: string, opts: { ascending: boolean }) => {
-            limit: (n: number) => {
-              maybeSingle: () => Promise<{ data: { created_at: string; details: string | null } | null; error?: unknown }>;
-            };
-          };
-        };
-      };
-    };
-  };
-}
-
 export interface RefreshAuditDialogInput {
-  client: AuditQueryClient;
   userId: string;
   role: string | null | undefined;
 }
@@ -314,18 +285,15 @@ export interface RefreshAuditDialogResult {
  * - The export-event query is skipped entirely for roles that can't export.
  */
 export const refreshAuditDialogData = async (
-  { client, userId, role }: RefreshAuditDialogInput,
+  { userId, role }: RefreshAuditDialogInput,
 ): Promise<RefreshAuditDialogResult> => {
   const timelinePromise = (async () => {
     try {
-      const res = await client
-        .from("audit_logs")
-        .select("id, action, details, created_at")
-        .eq("user_id", userId)
-        .in!("action", AUDIT_TIMELINE_ACTIONS)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      return { entries: (res.data || []) as AuditEntry[], entriesError: res.error ?? null };
+      const actions = AUDIT_TIMELINE_ACTIONS.join(",");
+      const res = await api.get<{ data: AuditEntry[] }>(
+        `/api/audit_logs?user_id=${userId}&action=${actions}&limit=20`
+      );
+      return { entries: (res.data || []) as AuditEntry[], entriesError: null };
     } catch (error) {
       return { entries: [] as AuditEntry[], entriesError: error };
     }
@@ -334,15 +302,10 @@ export const refreshAuditDialogData = async (
   const exportPromise = canExportAudit(role)
     ? (async () => {
         try {
-          const res = await client
-            .from("audit_logs")
-            .select("created_at, details")
-            .eq("user_id", userId)
-            .eq!("action", "2fa_audit_exported")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return { lastExportEvent: res.data ?? null, lastExportError: res.error ?? null, lastExportFetched: true };
+          const res = await api.get<{ data: any[] }>(
+            `/api/audit_logs?user_id=${userId}&action=2fa_audit_exported&limit=1`
+          );
+          return { lastExportEvent: res.data?.[0] ?? null, lastExportError: null, lastExportFetched: true };
         } catch (error) {
           return { lastExportEvent: null, lastExportError: error, lastExportFetched: true };
         }

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Database, Download, FileText, Calendar, Shield,
-  Loader2, Save, Clock, HardDrive, Trash2,
+  ArrowLeft, Database, Download, FileText, Users, Shield,
+  Loader2, Save, Clock, HardDrive,
 } from "lucide-react";
 
 interface DataBackupProps {
@@ -14,8 +14,8 @@ interface DataBackupProps {
 
 interface RetentionSettings {
   audit_logs_days: number;
-  visit_records_days: number;
-  lab_results_days: number;
+  sales_records_days: number;
+  inventory_days: number;
   auto_archive: boolean;
 }
 
@@ -35,6 +35,7 @@ const RETENTION_OPTIONS = [
 ];
 
 export default function DataBackupSection({ onBack }: DataBackupProps) {
+  const { success, error: toastError } = useToast();
   const { organizationId, userRole } = useAuth();
   const isAdmin = userRole === "org_owner" || userRole === "admin" || userRole === "super_admin" || userRole === "director";
 
@@ -43,8 +44,8 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
 
   const [retention, setRetention] = useState<RetentionSettings>({
     audit_logs_days: 365,
-    visit_records_days: 1825,
-    lab_results_days: 1825,
+    sales_records_days: 1825,
+    inventory_days: 1825,
     auto_archive: false,
   });
 
@@ -62,38 +63,26 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
       let data: any[] = [];
       let filename = "";
 
-      if (dataType === "patients") {
-        const { data: rows } = await supabase
-          .from("patients")
-          .select("patient_code, first_name, last_name, gender, date_of_birth, phone, email, status")
-          .eq("organization_id", organizationId);
-        data = rows || [];
-        filename = `patients_export_${new Date().toISOString().slice(0, 10)}`;
-      } else if (dataType === "appointments") {
-        const { data: rows } = await supabase
-          .from("appointments")
-          .select("scheduled_date, scheduled_time, appointment_type, status, chief_complaint, notes")
-          .eq("organization_id", organizationId);
-        data = rows || [];
-        filename = `appointments_export_${new Date().toISOString().slice(0, 10)}`;
+      if (dataType === "customers") {
+        const res = await api.get<{ success: boolean; data: any[] }>("/api/customers");
+        data = res.data || [];
+        filename = `customers_export_${new Date().toISOString().slice(0, 10)}`;
       } else if (dataType === "inventory") {
-        const { data: rows } = await supabase
-          .from("inventory")
-          .select("item_name, category, quantity, unit_price, selling_price, batch_number, expiry_date, status")
-          .eq("organization_id", organizationId);
-        data = rows || [];
+        const res = await api.get<{ success: boolean; data: any[] }>("/api/product-batches");
+        data = res.data || [];
         filename = `inventory_export_${new Date().toISOString().slice(0, 10)}`;
+      } else if (dataType === "sales") {
+        const res = await api.get<{ success: boolean; data: any[] }>("/api/sales");
+        data = res.data || [];
+        filename = `sales_export_${new Date().toISOString().slice(0, 10)}`;
       } else if (dataType === "audit_logs") {
-        const { data: rows } = await supabase
-          .from("audit_logs")
-          .select("created_at, action, user_name, resource_type, risk_level, details")
-          .eq("organization_id", organizationId);
-        data = rows || [];
+        const res = await api.get<{ success: boolean; data: any[] }>("/api/audit-logs");
+        data = res.data || [];
         filename = `audit_logs_export_${new Date().toISOString().slice(0, 10)}`;
       }
 
       if (data.length === 0) {
-        toast.info("No data to export");
+        success("No data", "No data to export");
         setExporting(null);
         return;
       }
@@ -117,7 +106,7 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
         a.download = `${filename}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success(`${dataType} exported as CSV`);
+        success("Success", `${dataType} exported as CSV`);
       } else {
         // Simple PDF-like text export
         const headers = Object.keys(data[0]);
@@ -136,10 +125,10 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
         a.download = `${filename}.txt`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success(`${dataType} exported as text report`);
+        success("Success", `${dataType} exported as text report`);
       }
     } catch {
-      toast.error("Export failed");
+      toastError("Error", "Export failed");
     }
     setExporting(null);
   };
@@ -147,30 +136,24 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
   const handleSaveSettings = async () => {
     if (!organizationId || !isAdmin) return;
     setSaving(true);
-
-    const { data: orgData } = await supabase
-      .from("organizations")
-      .select("settings")
-      .eq("id", organizationId)
-      .single();
-
-    const currentSettings = (orgData?.settings as Record<string, any>) || {};
-    const { error } = await supabase
-      .from("organizations")
-      .update({
-        settings: { ...currentSettings, data_retention: { ...retention }, backup: { ...backup } } as any,
-      })
-      .eq("id", organizationId);
-
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Data settings saved");
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const currentSettings = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      await api.put(`/api/organizations?id=${organizationId}`, {
+        settings: { ...currentSettings, data_retention: { ...retention }, backup: { ...backup } },
+      }, { organizationId });
+      success("Success", "Data settings saved");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save data settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const exportOptions = [
-    { key: "patients", label: "Patients", icon: FileText },
-    { key: "appointments", label: "Appointments", icon: Calendar },
+    { key: "customers", label: "Customers", icon: Users },
     { key: "inventory", label: "Inventory", icon: HardDrive },
+    { key: "sales", label: "Sales", icon: FileText },
     { key: "audit_logs", label: "Audit Logs", icon: Shield },
   ];
 
@@ -238,8 +221,8 @@ export default function DataBackupSection({ onBack }: DataBackupProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             { key: "audit_logs_days" as const, label: "Audit Logs" },
-            { key: "visit_records_days" as const, label: "Visit Records" },
-            { key: "lab_results_days" as const, label: "Lab Results" },
+            { key: "sales_records_days" as const, label: "Sales Records" },
+            { key: "inventory_days" as const, label: "Inventory" },
           ].map((field) => (
             <div key={field.key}>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">{field.label}</label>

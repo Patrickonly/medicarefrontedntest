@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AgrovetDashboardHome from "@/pages/dashboard/agrovet/AgrovetDashboardHome";
+import SuperAdminOverview from "@/pages/dashboard/core/SuperAdminOverview";
 
 const formatNumber = (value: number) => new Intl.NumberFormat("en-US").format(value);
 const formatCurrency = (value: number) =>
@@ -24,7 +25,8 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 export default function DashboardHome() {
-  const { user, organizationId, isAgrovetOrg } = useAuth();
+  const { user, organizationId, isAgrovetOrg, userRole } = useAuth();
+  const isSuperAdmin = userRole === "super_admin";
 
   const { data: metrics, isLoading, isError } = useQuery({
     queryKey: ["dashboard-metrics", organizationId],
@@ -50,11 +52,15 @@ export default function DashboardHome() {
         };
       }
     },
-    // Agrovet orgs render an entirely separate dashboard (below) backed by
-    // GET /api/agrovet/dashboard - don't also fire the generic /api/dashboard
+    // Agrovet orgs and super admins render entirely separate dashboards (below)
+    // backed by their own endpoints - don't also fire the generic /api/dashboard
     // query for them.
-    enabled: !!user && !isAgrovetOrg,
+    enabled: !!user && !isAgrovetOrg && !isSuperAdmin,
   });
+
+  if (isSuperAdmin) {
+    return <SuperAdminOverview />;
+  }
 
   if (isAgrovetOrg) {
     return <AgrovetDashboardHome />;

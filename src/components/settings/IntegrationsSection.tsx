@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Settings, MessageSquare, CreditCard, FlaskConical,
-  Loader2, Save, Plug, PlugZap, ExternalLink, Shield,
+  ArrowLeft, MessageSquare, CreditCard, FlaskConical,
+  Loader2, Save, ExternalLink, Shield,
 } from "lucide-react";
 
 interface IntegrationsProps {
@@ -22,6 +22,17 @@ interface IntegrationConfig {
   ehr_system: "none" | "openmrs" | "dhis2" | "custom";
   ehr_enabled: boolean;
 }
+
+const DEFAULT_CONFIG: IntegrationConfig = {
+  sms_provider: "none",
+  sms_enabled: false,
+  payment_gateway: "none",
+  payment_enabled: false,
+  lab_system: "none",
+  lab_enabled: false,
+  ehr_system: "none",
+  ehr_enabled: false,
+};
 
 const INTEGRATIONS = [
   {
@@ -84,42 +95,43 @@ const INTEGRATIONS = [
 ];
 
 export default function IntegrationsSection({ onBack }: IntegrationsProps) {
+  const { success, error: toastError } = useToast();
   const { organizationId, userRole } = useAuth();
   const isAdmin = userRole === "org_owner" || userRole === "admin" || userRole === "super_admin" || userRole === "director";
 
   const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<IntegrationConfig>({
-    sms_provider: "none",
-    sms_enabled: false,
-    payment_gateway: "none",
-    payment_enabled: false,
-    lab_system: "none",
-    lab_enabled: false,
-    ehr_system: "none",
-    ehr_enabled: false,
-  });
+  const [config, setConfig] = useState<IntegrationConfig>(DEFAULT_CONFIG);
+
+  useEffect(() => {
+    if (organizationId) fetchSettings();
+  }, [organizationId]);
+
+  const fetchSettings = async () => {
+    if (!organizationId) return;
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const integrations = res.data?.settings?.integrations as Partial<IntegrationConfig> | undefined;
+      if (integrations) setConfig({ ...DEFAULT_CONFIG, ...integrations });
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load integration settings");
+    }
+  };
 
   const handleSave = async () => {
     if (!organizationId || !isAdmin) return;
     setSaving(true);
-
-    const { data: orgData } = await supabase
-      .from("organizations")
-      .select("settings")
-      .eq("id", organizationId)
-      .single();
-
-    const currentSettings = (orgData?.settings as Record<string, any>) || {};
-    const { error } = await supabase
-      .from("organizations")
-      .update({
-        settings: { ...currentSettings, integrations: { ...config } } as any,
-      })
-      .eq("id", organizationId);
-
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Integration settings saved");
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const currentSettings = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      await api.put(`/api/organizations?id=${organizationId}`, {
+        settings: { ...currentSettings, integrations: { ...config } },
+      }, { organizationId });
+      success("Success", "Integration settings saved");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save integration settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

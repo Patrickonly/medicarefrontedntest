@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { generateRecoveryCodes, hashCodes } from "@/lib/recoveryCodes";
 import RecoveryCodesDisplay from "@/components/auth/RecoveryCodesDisplay";
 
@@ -42,6 +42,7 @@ interface CodeStats {
  * once and the user must acknowledge having saved them.
  */
 export default function RecoveryCodesSection({ onBack }: Props) {
+  const { success, error: toastError } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<CodeStats>({ total: 0, unused: 0, lastGeneratedAt: null, lastUsedAt: null });
@@ -61,25 +62,27 @@ export default function RecoveryCodesSection({ onBack }: Props) {
   const loadStats = async () => {
     if (!user) return;
     setLoading(true);
+    try {
+      const statusRes = await api.get<{ success: boolean; data: { enabled: boolean } }>("/api/2fa/status");
+      setIs2faEnabled(!!statusRes.data?.enabled);
 
-    // 2FA must be enabled to use codes
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    setIs2faEnabled(!!factors?.totp?.find((f) => (f.status as string) === "verified"));
+      const statsRes = await api.get<{ success: boolean; data: CodeStats }>("/api/2fa/recovery-codes/stats");
+      setStats(statsRes.data || { total: 0, unused: 0, lastGeneratedAt: null, lastUsedAt: null });
+    } catch {
+      // Leave defaults if stats can't be fetched
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const { data: codes } = await supabase
-      .from("user_recovery_codes")
-      .select("created_at, used_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    const all = codes || [];
-    const unused = all.filter((c) => !c.used_at);
-    const lastGeneratedAt = all[0]?.created_at ?? null;
-    const usedSorted = all.filter((c) => c.used_at).sort((a, b) => (b.used_at! > a.used_at! ? 1 : -1));
-    const lastUsedAt = usedSorted[0]?.used_at ?? null;
-
-    setStats({ total: all.length, unused: unused.length, lastGeneratedAt, lastUsedAt });
-    setLoading(false);
+  const logAudit = (action: string, details: string, risk: "low" | "medium" = "low") => {
+    api.post("/api/audit-logs", {
+      action,
+      resource_type: "user_account",
+      resource_id: user?.id,
+      risk_level: risk,
+      details,
+    }).catch(() => undefined);
   };
 
   const openReauth = () => {
@@ -94,21 +97,12 @@ export default function RecoveryCodesSection({ onBack }: Props) {
     setReauthing(true);
     setReauthError(null);
 
-    // Re-authenticate by attempting a password sign-in. On success Supabase
-    // refreshes the current session in place.
-    const { error } = await supabase.auth.signInWithPassword({ email: user.email, password });
-    if (error) {
+    try {
+      await api.post("/api/auth/verify-password", { password });
+    } catch {
       setReauthError("Incorrect password. Please try again.");
       setReauthing(false);
-      await supabase.from("audit_logs").insert({
-        action: "recovery_codes_reauth_failed",
-        user_id: user.id,
-        user_name: user.email,
-        resource_type: "user_account",
-        resource_id: user.id,
-        risk_level: "medium",
-        details: "Failed re-auth attempt while regenerating recovery codes",
-      });
+      logAudit("recovery_codes_reauth_failed", "Failed re-auth attempt while regenerating recovery codes", "medium");
       return;
     }
 
@@ -121,35 +115,21 @@ export default function RecoveryCodesSection({ onBack }: Props) {
   const regenerate = async () => {
     if (!user) return;
     try {
-      // Wipe old codes
-      await supabase.from("user_recovery_codes").delete().eq("user_id", user.id);
       const codes = generateRecoveryCodes(10);
       const hashes = await hashCodes(codes);
-      const { error } = await supabase
-        .from("user_recovery_codes")
-        .insert(hashes.map((code_hash) => ({ user_id: user.id, code_hash })));
-      if (error) throw error;
+      await api.post("/api/2fa/recovery-codes", { codeHashes: hashes });
 
-      await supabase.from("audit_logs").insert({
-        action: "recovery_codes_regenerated",
-        user_id: user.id,
-        user_name: user.email,
-        resource_type: "user_account",
-        resource_id: user.id,
-        risk_level: "low",
-        details: `Regenerated 10 recovery codes (with password re-auth)`,
-      });
-
+      logAudit("recovery_codes_regenerated", "Regenerated 10 recovery codes (with password re-auth)");
       setGeneratedCodes(codes);
     } catch (e: any) {
-      toast.error(e?.message || "Failed to regenerate codes");
+      toastError("Error", e?.message || "Failed to regenerate codes");
     }
   };
 
   const acknowledgeCodes = async () => {
     setGeneratedCodes(null);
     await loadStats();
-    toast.success("Recovery codes saved");
+    success("Success", "Recovery codes saved");
   };
 
   if (loading) {

@@ -1,21 +1,30 @@
-import { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import {
-  ArrowLeft, Save, Loader2, User, Lock, Mail, Phone, Camera, LogOut, AlertTriangle,
-} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { api } from "@/lib/api";
 import { ROLE_LABELS } from "@/types/rbac";
-import TwoFactorSetup from "./TwoFactorSetup";
-import TrustedDevicesSection from "./TrustedDevicesSection";
+import {
+    AlertTriangle,
+    ArrowLeft,
+    Camera,
+    Loader2,
+    Lock,
+    LogOut,
+    Mail, Phone,
+    Save,
+    User,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import ActivityLog from "./ActivityLog";
+import TrustedDevicesSection from "./TrustedDevicesSection";
+import TwoFactorSetup from "./TwoFactorSetup";
 
 interface ProfileProps {
   onBack: () => void;
 }
 
 export default function ProfileSection({ onBack }: ProfileProps) {
+  const { success, error: toastError } = useToast();
   const { user, userRole, signOut } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,67 +38,61 @@ export default function ProfileSection({ onBack }: ProfileProps) {
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  const [passwordStep, setPasswordStep] = useState<"form" | "otp">("form");
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   useEffect(() => {
     if (user) fetchProfile();
   }, [user]);
 
-  const refreshSignedAvatar = async (path: string) => {
-    const { data } = await supabase.storage.from("org-logos").createSignedUrl(path, 60 * 60 * 24 * 7);
-    if (data?.signedUrl) setAvatarUrl(data.signedUrl);
-  };
-
   const fetchProfile = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("first_name, last_name, phone, avatar_url")
-      .eq("id", user.id)
-      .single();
-    if (data) {
-      setFirstName(data.first_name || "");
-      setLastName(data.last_name || "");
-      setPhone(data.phone || "");
-      if (data.avatar_url) {
-        if (data.avatar_url.startsWith("http")) {
-          const match = data.avatar_url.match(/\/org-logos\/(.+?)(?:\?|$)/);
-          if (match) await refreshSignedAvatar(match[1]);
-          else setAvatarUrl(data.avatar_url);
-        } else {
-          await refreshSignedAvatar(data.avatar_url);
-        }
+    try {
+      const res = await api.get<{ success: boolean; data: any }>("/api/users/profile");
+      const data = res.data;
+      if (data) {
+        setFirstName(data.firstName || data.first_name || "");
+        setLastName(data.lastName || data.last_name || "");
+        setPhone(data.phone || "");
+        setAvatarUrl(data.avatarUrl || data.avatar_url || null);
       }
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load profile");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const logAudit = (action: string, details: string, risk: "low" | "medium" | "high" = "low") => {
+    api.post("/api/audit-logs", {
+      action,
+      resource_type: "user_account",
+      resource_id: user?.id,
+      risk_level: risk,
+      details,
+    }).catch(() => undefined);
   };
 
   const handleSaveProfile = async () => {
     if (!user) return;
     if (!firstName.trim() || !lastName.trim()) {
-      toast.error("First and last name are required");
+      toastError("Error", "First and last name are required");
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ first_name: firstName, last_name: lastName, phone: phone || null })
-      .eq("id", user.id);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Profile updated");
-      await supabase.from("audit_logs").insert({
-        action: "profile_updated",
-        user_id: user.id,
-        user_name: `${firstName} ${lastName}`,
-        resource_type: "user_account",
-        resource_id: user.id,
-        risk_level: "low",
-        details: "Personal information updated",
-      });
+    try {
+      await api.put("/api/users/profile", { first_name: firstName, last_name: lastName, phone: phone || null });
+      success("Success", "Profile updated");
+      logAudit("profile_updated", "Personal information updated");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -97,82 +100,98 @@ export default function ProfileSection({ onBack }: ProfileProps) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Avatar must be less than 2MB");
+      toastError("Error", "Avatar must be less than 2MB");
       return;
     }
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("org-logos").upload(path, file, { upsert: true });
-    if (upErr) {
-      toast.error(upErr.message);
+    try {
+      const uploadRes = await api.upload<{ success: boolean; data: { url: string } }>("/api/uploads", file);
+      const url = uploadRes.data.url;
+      await api.put("/api/users/profile", { avatarUrl: url });
+      setAvatarUrl(url);
+      success("Success", "Avatar updated");
+      logAudit("avatar_updated", "Profile picture updated");
+    } catch (uploadError: any) {
+      toastError("Error", uploadError.message || "Failed to upload avatar");
+    } finally {
       setUploading(false);
-      return;
-    }
-    const { error } = await supabase.from("profiles").update({ avatar_url: path }).eq("id", user.id);
-    setUploading(false);
-    if (error) toast.error(error.message);
-    else {
-      await refreshSignedAvatar(path);
-      toast.success("Avatar updated");
     }
   };
 
   const handleRemoveAvatar = async () => {
     if (!user) return;
-    const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await api.put("/api/users/profile", { avatarUrl: null });
       setAvatarUrl(null);
-      toast.success("Avatar removed");
+      success("Success", "Avatar removed");
+    } catch (removeError: any) {
+      toastError("Error", removeError.message || "Failed to remove avatar");
     }
   };
 
-  const handleChangePassword = async () => {
+  const handleRequestPasswordOtp = async () => {
+    if (!oldPassword) {
+      toastError("Error", "Please enter your current password");
+      return;
+    }
     if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toastError("Error", "New password must be at least 8 characters");
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toastError("Error", "Passwords do not match");
       return;
     }
     setChangingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setChangingPassword(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Password changed successfully");
+    try {
+      await api.post("/api/users/profile/change-password", { action: "REQUEST_OTP", oldPassword });
+      success("Verification code sent", "Enter the code we sent you to confirm the password change.");
+      setPasswordStep("otp");
+    } catch (requestError: any) {
+      toastError("Error", requestError.message || "Failed to send verification code");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleVerifyAndChangePassword = async () => {
+    if (!otpCode) {
+      toastError("Error", "Please enter the verification code");
+      return;
+    }
+    setVerifyingOtp(true);
+    try {
+      await api.post("/api/users/profile/change-password", {
+        action: "VERIFY_AND_CHANGE",
+        newPassword,
+        otpCode,
+      });
+      logAudit("password_changed", "Account password was changed", "medium");
+      setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      if (user) {
-        await supabase.from("audit_logs").insert({
-          action: "password_changed",
-          user_id: user.id,
-          user_name: user.email,
-          resource_type: "user_account",
-          resource_id: user.id,
-          risk_level: "medium",
-          details: "Account password was changed",
-        });
-      }
+      setOtpCode("");
+      setPasswordStep("form");
+      success("Success", "Password changed. Please sign in again with your new password.");
+      await signOut();
+    } catch (verifyError: any) {
+      toastError("Error", verifyError.message || "Failed to verify code");
+    } finally {
+      setVerifyingOtp(false);
     }
+  };
+
+  const handleCancelPasswordChange = () => {
+    setPasswordStep("form");
+    setOtpCode("");
   };
 
   const handleSignOut = async () => {
     if (user) {
-      await supabase.from("audit_logs").insert({
-        action: "sign_out",
-        user_id: user.id,
-        user_name: user.email,
-        resource_type: "user_account",
-        resource_id: user.id,
-        risk_level: "low",
-        details: "User signed out",
-      });
+      logAudit("sign_out", "User signed out");
     }
     await signOut();
-    toast.success("Signed out");
+    success("Success", "Signed out");
   };
 
   if (loading) {
@@ -268,21 +287,47 @@ export default function ProfileSection({ onBack }: ProfileProps) {
         <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
           <Lock size={16} className="text-primary" /> Change Password
         </h3>
-        <p className="text-xs text-muted-foreground">Use at least 8 characters. Make it strong and unique.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">New Password</label>
-            <input type="password" className="medicare-input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Confirm New Password</label>
-            <input type="password" className="medicare-input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-        </div>
-        <Button onClick={handleChangePassword} disabled={changingPassword || !newPassword} className="gap-2">
-          {changingPassword ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
-          Update Password
-        </Button>
+
+        {passwordStep === "form" ? (
+          <>
+            <p className="text-xs text-muted-foreground">Use at least 8 characters. Make it strong and unique.</p>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Current Password</label>
+              <input type="password" className="medicare-input" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">New Password</label>
+                <input type="password" className="medicare-input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Confirm New Password</label>
+                <input type="password" className="medicare-input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
+              </div>
+            </div>
+            <Button onClick={handleRequestPasswordOtp} disabled={changingPassword || !oldPassword || !newPassword} className="gap-2">
+              {changingPassword ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+              Send Verification Code
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">Enter the verification code we sent you to confirm this password change.</p>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Verification Code</label>
+              <input type="text" className="medicare-input" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="Enter code" />
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleVerifyAndChangePassword} disabled={verifyingOtp || !otpCode} className="gap-2">
+                {verifyingOtp ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
+                Confirm Password Change
+              </Button>
+              <Button variant="outline" onClick={handleCancelPasswordChange} disabled={verifyingOtp}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Two-Factor Authentication */}

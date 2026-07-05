@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { Shield, ShieldCheck, ShieldAlert, Loader2, Copy, Check, AlertTriangle, X, KeyRound, RefreshCw } from "lucide-react";
 import { generateRecoveryCodes, hashCodes } from "@/lib/recoveryCodes";
 import RecoveryCodesDisplay from "@/components/auth/RecoveryCodesDisplay";
@@ -15,6 +15,7 @@ interface EnrollState {
 }
 
 export default function TwoFactorSetup() {
+  const { success, error: toastError } = useToast();
   const { user, userRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isEnabled, setIsEnabled] = useState(false);
@@ -31,97 +32,81 @@ export default function TwoFactorSetup() {
     checkStatus();
   }, [user]);
 
+  const logAudit = (action: string, details: string, risk: "low" | "medium" | "high" = "low") => {
+    api.post("/api/audit-logs", {
+      action,
+      resource_type: "user_account",
+      resource_id: user?.id,
+      risk_level: risk,
+      details,
+    }).catch(() => undefined);
+  };
+
   const checkStatus = async () => {
     if (!user) return;
     setLoading(true);
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    const verifiedTotp = factors?.totp?.find((f) => (f.status as string) === "verified");
-    setIsEnabled(!!verifiedTotp);
+    try {
+      const statusRes = await api.get<{ success: boolean; data: { enabled: boolean } }>("/api/2fa/status");
+      setIsEnabled(!!statusRes.data?.enabled);
 
-    const { count } = await supabase
-      .from("user_recovery_codes")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("used_at", null);
-    setUnusedCodeCount(count || 0);
-
-    setLoading(false);
+      const codesRes = await api.get<{ success: boolean; data: { unused: number } }>("/api/2fa/recovery-codes/stats");
+      setUnusedCodeCount(codesRes.data?.unused || 0);
+    } catch {
+      // Leave defaults (disabled, 0 codes) if status can't be fetched
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startEnrollment = async () => {
     setWorking(true);
-    const { data: existing } = await supabase.auth.mfa.listFactors();
-    const unverified = existing?.totp?.filter((f) => (f.status as string) !== "verified") || [];
-    for (const f of unverified) {
-      await supabase.auth.mfa.unenroll({ factorId: f.id });
-    }
-
-    const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: "totp",
-      friendlyName: `MEDICARE ONE - ${new Date().toISOString()}`,
-    });
-    setWorking(false);
-    if (error) return toast.error(error.message);
-    if (data) {
+    try {
+      const res = await api.post<{ success: boolean; data: { factorId: string; qrCode: string; secret: string; otpauthUrl: string } }>("/api/2fa/enroll", {});
       setEnrollState({
-        factorId: data.id,
-        qr: data.totp.qr_code,
-        secret: data.totp.secret,
-        uri: data.totp.uri,
+        factorId: res.data.factorId,
+        qr: res.data.qrCode,
+        secret: res.data.secret,
+        uri: res.data.otpauthUrl,
       });
+    } catch (enrollError: any) {
+      toastError("Error", enrollError.message || "Failed to start 2FA enrollment");
+    } finally {
+      setWorking(false);
     }
   };
 
   const verifyEnrollment = async () => {
-    if (!enrollState || verifyCode.length !== 6) return toast.error("Enter the 6-digit code");
+    if (!enrollState || verifyCode.length !== 6) { toastError("Error", "Enter the 6-digit code"); return; }
     setWorking(true);
-    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({ factorId: enrollState.factorId });
-    if (chErr) { toast.error(chErr.message); setWorking(false); return; }
-    const { error: vErr } = await supabase.auth.mfa.verify({
-      factorId: enrollState.factorId, challengeId: challenge.id, code: verifyCode,
-    });
-    if (vErr) { toast.error("Invalid code. Try again."); setWorking(false); return; }
+    try {
+      await api.post("/api/2fa/verify", { factorId: enrollState.factorId, code: verifyCode });
 
-    if (user) {
-      await supabase.from("user_2fa").upsert({
-        user_id: user.id, is_enabled: true, factor_id: enrollState.factorId,
-        enrolled_at: new Date().toISOString(), last_verified_at: new Date().toISOString(),
-      });
-      await supabase.from("audit_logs").insert({
-        action: "2fa_enabled", user_id: user.id, user_name: user.email,
-        resource_type: "user_account", resource_id: user.id,
-        risk_level: "low", details: "User enabled two-factor authentication (TOTP)",
-      });
-      // Generate recovery codes immediately
+      logAudit("2fa_enabled", "User enabled two-factor authentication (TOTP)");
       await generateAndStoreCodes();
-    }
 
-    toast.success("Two-factor authentication enabled");
-    setEnrollState(null);
-    setVerifyCode("");
-    setIsEnabled(true);
-    setWorking(false);
+      success("Success", "Two-factor authentication enabled");
+      setEnrollState(null);
+      setVerifyCode("");
+      setIsEnabled(true);
+    } catch (verifyError: any) {
+      toastError("Error", verifyError.message || "Invalid code. Try again.");
+    } finally {
+      setWorking(false);
+    }
   };
 
   const generateAndStoreCodes = async () => {
     if (!user) return;
-    // Wipe any existing codes
-    await supabase.from("user_recovery_codes").delete().eq("user_id", user.id);
     const codes = generateRecoveryCodes(10);
     const hashes = await hashCodes(codes);
-    const rows = hashes.map((code_hash) => ({ user_id: user.id, code_hash }));
-    const { error } = await supabase.from("user_recovery_codes").insert(rows);
-    if (error) {
-      toast.error("Failed to save recovery codes: " + error.message);
-      return;
+    try {
+      await api.post("/api/2fa/recovery-codes", { codeHashes: hashes });
+      setGeneratedCodes(codes);
+      setUnusedCodeCount(codes.length);
+      logAudit("2fa_recovery_codes_generated", `Generated ${codes.length} new recovery codes`);
+    } catch (codesError: any) {
+      toastError("Error", "Failed to save recovery codes: " + (codesError.message || "unknown error"));
     }
-    setGeneratedCodes(codes);
-    setUnusedCodeCount(codes.length);
-    await supabase.from("audit_logs").insert({
-      action: "2fa_recovery_codes_generated", user_id: user.id, user_name: user.email,
-      resource_type: "user_account", resource_id: user.id,
-      risk_level: "low", details: `Generated ${codes.length} new recovery codes`,
-    });
   };
 
   const regenerateCodes = async () => {
@@ -129,11 +114,13 @@ export default function TwoFactorSetup() {
     setWorking(true);
     await generateAndStoreCodes();
     setWorking(false);
-    toast.success("Recovery codes regenerated");
+    success("Success", "Recovery codes regenerated");
   };
 
   const cancelEnrollment = async () => {
-    if (enrollState) await supabase.auth.mfa.unenroll({ factorId: enrollState.factorId });
+    if (enrollState) {
+      await api.post("/api/2fa/unenroll", { factorId: enrollState.factorId }).catch(() => undefined);
+    }
     setEnrollState(null);
     setVerifyCode("");
   };
@@ -141,28 +128,24 @@ export default function TwoFactorSetup() {
   const disable2FA = async () => {
     if (!confirm("Disable two-factor authentication? This will make your account less secure.")) return;
     setWorking(true);
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    for (const f of factors?.totp || []) await supabase.auth.mfa.unenroll({ factorId: f.id });
-    if (user) {
-      await supabase.from("user_2fa").update({ is_enabled: false, factor_id: null }).eq("user_id", user.id);
-      await supabase.from("user_recovery_codes").delete().eq("user_id", user.id);
-      await supabase.from("audit_logs").insert({
-        action: "2fa_disabled", user_id: user.id, user_name: user.email,
-        resource_type: "user_account", resource_id: user.id,
-        risk_level: "high", details: "User disabled two-factor authentication",
-      });
+    try {
+      await api.post("/api/2fa/disable", {});
+      logAudit("2fa_disabled", "User disabled two-factor authentication", "high");
+      setIsEnabled(false);
+      setUnusedCodeCount(0);
+      success("Success", "Two-factor authentication disabled");
+    } catch (disableError: any) {
+      toastError("Error", disableError.message || "Failed to disable 2FA");
+    } finally {
+      setWorking(false);
     }
-    setIsEnabled(false);
-    setUnusedCodeCount(0);
-    setWorking(false);
-    toast.success("Two-factor authentication disabled");
   };
 
   const copySecret = () => {
     if (enrollState) {
       navigator.clipboard.writeText(enrollState.secret);
       setSecretCopied(true);
-      toast.success("Secret copied");
+      success("Success", "Secret copied");
       setTimeout(() => setSecretCopied(false), 2000);
     }
   };

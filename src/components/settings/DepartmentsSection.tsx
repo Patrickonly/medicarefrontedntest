@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Loader2, Save, Building2, Users, Pencil, X, Check,
 } from "lucide-react";
@@ -19,7 +19,6 @@ interface Department {
 
 interface StaffMember {
   id: string;
-  user_id: string;
   role: string;
   department_id: string | null;
   first_name: string;
@@ -31,6 +30,7 @@ interface Props {
 }
 
 export default function DepartmentsSection({ onBack }: Props) {
+  const { success, error: toastError } = useToast();
   const { organizationId, userRole } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -62,83 +62,90 @@ export default function DepartmentsSection({ onBack }: Props) {
   const fetchDepartments = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("departments")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("name");
-    setDepartments((data as Department[]) || []);
-    setLoading(false);
+    try {
+      const res = await api.get<{ success: boolean; data: Department[] }>("/api/departments");
+      setDepartments(res.data || []);
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load departments");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchStaff = async () => {
     if (!organizationId) return;
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("id, user_id, role, department_id")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true);
-    if (roles && roles.length > 0) {
-      const ids = roles.map((r) => r.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name")
-        .in("id", ids);
-      const pMap = new Map((profiles || []).map((p) => [p.id, p]));
+    try {
+      const res = await api.get<{ success: boolean; data: any[] }>("/api/users");
+      const users = res.data || [];
       setStaff(
-        roles.map((r) => ({
-          ...r,
-          first_name: pMap.get(r.user_id)?.first_name || "Unknown",
-          last_name: pMap.get(r.user_id)?.last_name || "",
+        users.map((u) => ({
+          id: u.id,
+          role: u.role?.name || u.role || "",
+          department_id: u.departmentId || u.department_id || null,
+          first_name: u.firstName || u.first_name || "Unknown",
+          last_name: u.lastName || u.last_name || "",
         }))
       );
+    } catch {
+      // Non-fatal — staff assignment list stays empty
     }
   };
 
   const handleCreate = async () => {
     if (!newName.trim() || !newCode.trim() || !organizationId) {
-      toast.error("Name and code are required");
+      toastError("Error", "Name and code are required");
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("departments").insert({
-      name: newName.trim(),
-      code: newCode.trim().toUpperCase(),
-      organization_id: organizationId,
-    });
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Department created");
+    try {
+      await api.post("/api/departments", {
+        name: newName.trim(),
+        code: newCode.trim().toUpperCase(),
+      });
+      success("Success", "Department created");
       setNewName("");
       setNewCode("");
       setShowForm(false);
       fetchDepartments();
+    } catch (createError: any) {
+      toastError("Error", createError.message || "Failed to create department");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleRename = async (id: string) => {
     if (!editName.trim()) return;
-    const { error } = await supabase.from("departments").update({ name: editName.trim() }).eq("id", id);
-    if (error) toast.error(error.message);
-    else { toast.success("Department renamed"); setEditingId(null); fetchDepartments(); }
+    try {
+      await api.put(`/api/departments/${id}`, { name: editName.trim() });
+      success("Success", "Department renamed");
+      setEditingId(null);
+      fetchDepartments();
+    } catch (renameError: any) {
+      toastError("Error", renameError.message || "Failed to rename department");
+    }
   };
 
   const handleToggleActive = async (dept: Department) => {
-    const { error } = await supabase.from("departments").update({ is_active: !dept.is_active }).eq("id", dept.id);
-    if (error) toast.error(error.message);
-    else { toast.success(dept.is_active ? "Department deactivated" : "Department activated"); fetchDepartments(); }
+    try {
+      await api.put(`/api/departments/${dept.id}`, { is_active: !dept.is_active });
+      success("Success", dept.is_active ? "Department deactivated" : "Department activated");
+      fetchDepartments();
+    } catch (toggleError: any) {
+      toastError("Error", toggleError.message || "Failed to update department");
+    }
   };
 
   const handleAssignStaff = async (deptId: string) => {
     if (!selectedStaff) return;
-    const { error } = await supabase.from("user_roles").update({ department_id: deptId }).eq("id", selectedStaff);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Staff assigned to department");
+    try {
+      await api.put(`/api/users`, { id: selectedStaff, departmentId: deptId });
+      success("Success", "Staff assigned to department");
       setAssigningDept(null);
       setSelectedStaff("");
       fetchStaff();
+    } catch (assignError: any) {
+      toastError("Error", assignError.message || "Failed to assign staff");
     }
   };
 

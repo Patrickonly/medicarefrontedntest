@@ -1,5 +1,6 @@
 import { Loader2, FileX, AlertCircle, Search } from "lucide-react";
 import { motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LoadingState({ message = "Loading data..." }: { message?: string }) {
   return (
@@ -72,5 +73,25 @@ export function NoSearchResults({ query }: { query: string }) {
       title="No results found"
       message={`No records match "${query}". Try adjusting your search.`}
     />
+  );
+}
+
+export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
+  return (
+    <div className="w-full">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between p-4 border-b border-slate-100 animate-in fade-in duration-500">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-[150px] sm:w-[250px]" />
+          </div>
+          <div className="hidden sm:flex items-center gap-8">
+            {Array.from({ length: columns - 1 }).map((_, j) => (
+              <Skeleton key={j} className="h-4 w-[100px]" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

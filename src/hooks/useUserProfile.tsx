@@ -1,7 +1,5 @@
-
-import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { localDB } from "@/data/localStorageDB";
+import { useEffect, useState } from "react";
 
 interface UserProfile {
   firstName: string;
@@ -21,27 +19,13 @@ export function useUserProfile() {
 
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
 
-    const load = async () => {
-      // Load user from our localStorage DB
-      const dbUser = localDB.users.getById(user.id);
-      if (!dbUser || cancelled) return;
+    const fn = user.first_name || user.firstName || "";
+    const ln = user.last_name || user.lastName || "";
+    const initials = `${fn[0] || ""}${ln[0] || ""}`.toUpperCase() || (user.email?.[0] || "U").toUpperCase();
 
-      const fn = dbUser.firstName || "";
-      const ln = dbUser.lastName || "";
-      const initials = `${fn[0] || ""}${ln[0] || ""}`.toUpperCase() || (dbUser.email?.[0] || "U").toUpperCase();
-
-      if (!cancelled) {
-        setProfile({ 
-          firstName: fn, lastName: ln, avatarUrl: null, initials });
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+    setProfile({ 
+      firstName: fn, lastName: ln, avatarUrl: null, initials });
   }, [user]);
 
   return profile;

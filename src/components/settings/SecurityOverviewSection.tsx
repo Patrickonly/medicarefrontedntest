@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import {
   ArrowLeft, ShieldCheck, ShieldAlert, Loader2, Search, AlertTriangle,
   Users, Mail, Play, Clock, RotateCcw, Activity, FileText, X,
   ChevronLeft, ChevronRight, Check,
 } from "lucide-react";
 import { ROLE_LABELS } from "@/types/rbac";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface SecurityProps {
   onBack: () => void;
@@ -60,6 +60,7 @@ function relativeTime(iso: string): string {
 }
 
 export default function SecurityOverviewSection({ onBack }: SecurityProps) {
+  const { success, error } = useToast();
   const { organizationId, userRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<MemberSecurity[]>([]);
@@ -99,55 +100,14 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
     if (!organizationId) return;
     setLoading(true);
 
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("user_id, role")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true);
-
-    if (!roles || roles.length === 0) {
+    try {
+      const res = await api.get<{ data: MemberSecurity[] }>("/api/security/members");
+      setMembers(res.data || []);
+    } catch (err) {
+      console.error(err);
       setMembers([]);
-      setLoading(false);
-      return;
     }
 
-    const userIds = roles.map((r) => r.user_id);
-    const [{ data: profiles }, { data: twofa }, { data: reminders }] = await Promise.all([
-      supabase.from("profiles").select("id, first_name, last_name").in("id", userIds),
-      supabase.from("user_2fa").select("user_id, is_enabled, last_verified_at").in("user_id", userIds),
-      supabase
-        .from("security_reminders")
-        .select("recipient_user_id, sent_at")
-        .eq("organization_id", organizationId)
-        .in("recipient_user_id", userIds)
-        .order("sent_at", { ascending: false }),
-    ]);
-
-    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
-    const twoFaMap = new Map((twofa || []).map((t) => [t.user_id, t]));
-    const lastRemindedMap = new Map<string, string>();
-    for (const r of reminders || []) {
-      if (!lastRemindedMap.has(r.recipient_user_id)) {
-        lastRemindedMap.set(r.recipient_user_id, r.sent_at);
-      }
-    }
-
-    const list: MemberSecurity[] = roles.map((r) => {
-      const p = profileMap.get(r.user_id);
-      const t = twoFaMap.get(r.user_id);
-      return {
-        user_id: r.user_id,
-        role: r.role,
-        first_name: p?.first_name || "Unknown",
-        last_name: p?.last_name || "",
-        is_2fa_enabled: !!t?.is_enabled,
-        last_verified_at: t?.last_verified_at || null,
-        is_admin_role: ADMIN_ROLES.includes(r.role),
-        last_reminded_at: lastRemindedMap.get(r.user_id) || null,
-      };
-    });
-
-    setMembers(list);
     setLoading(false);
   };
 
@@ -158,41 +118,17 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
     const from = showAllReminders ? reminderPage * REMINDERS_PAGE_SIZE : 0;
     const to = showAllReminders ? from + REMINDERS_PAGE_SIZE - 1 : REMINDERS_PAGE_SIZE - 1;
 
-    const { data: rows, count } = await supabase
-      .from("security_reminders")
-      .select("id, sent_at, reason, recipient_user_id, sent_by", { count: "exact" })
-      .eq("organization_id", organizationId)
-      .order("sent_at", { ascending: false })
-      .range(from, to);
-
-    setReminderTotal(count ?? 0);
-
-    if (!rows || rows.length === 0) {
+    try {
+      const res = await api.get<{ data: ReminderActivity[], count: number }>(
+        `/api/security/reminders?from=${from}&to=${to}`
+      );
+      setActivity(res.data || []);
+      setReminderTotal(res.count || 0);
+    } catch (err) {
+      console.error(err);
       setActivity([]);
-      setActivityLoading(false);
-      return;
+      setReminderTotal(0);
     }
-
-    const ids = Array.from(new Set([...rows.map((r) => r.recipient_user_id), ...rows.map((r) => r.sent_by)]));
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", ids);
-
-    const nameMap = new Map(
-      (profiles || []).map((p) => [p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Unknown"]),
-    );
-
-    setActivity(
-      rows.map((r) => ({
-        id: r.id,
-        sent_at: r.sent_at,
-        reason: r.reason,
-        recipient_user_id: r.recipient_user_id,
-        recipient_name: nameMap.get(r.recipient_user_id) || "Unknown member",
-        sender_name: nameMap.get(r.sent_by) || "System",
-      })),
-    );
     setActivityLoading(false);
   };
 
@@ -219,38 +155,39 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
 
   const handleNudge = async (member: MemberSecurity) => {
     setNudging(member.user_id);
-    const { data, error } = await supabase.functions.invoke("send-2fa-reminder", {
-      body: { recipient_user_id: member.user_id },
-    });
-    setNudging(null);
-    if (error) {
-      toast.error(`Failed to send reminder: ${error.message}`);
-      return;
-    }
-    if (data?.email_sent) {
-      toast.success(`Reminder emailed to ${member.first_name} ${member.last_name}`);
-    } else {
-      toast.success(`Reminder logged for ${member.first_name}`, {
-        description: data?.email_error
-          ? "Email delivery isn't configured yet — set up an email domain in Cloud → Emails to send actual emails."
-          : "Reminder recorded in audit log.",
+    try {
+      const res = await api.post<{ data: any }>("/api/security/reminders/nudge", {
+        recipient_user_id: member.user_id,
       });
+      if (res.data?.email_sent) {
+        success("Success", `Reminder emailed to ${member.first_name} ${member.last_name}`);
+      } else {
+        success(`Reminder logged for ${member.first_name}`, {
+          description: res.data?.email_error
+            ? "Email delivery isn't configured yet - set up an email domain to send actual emails."
+            : "Reminder recorded in audit log.",
+        });
+      }
+    } catch (err: any) {
+      error("Error", `Failed to send reminder: ${err.message}`);
     }
+    setNudging(null);
     void loadMembers();
     void loadActivity();
   };
 
   const runReminderJobNow = async () => {
     setRunningJob(true);
-    const { data, error } = await supabase.functions.invoke("auto-2fa-reminder-cron", { body: {} });
-    setRunningJob(false);
-    if (error) {
-      toast.error(`Job failed: ${error.message}`);
-      return;
+    try {
+      const res = await api.post<{ data: any }>("/api/security/reminders/auto", {});
+      const data = res.data;
+      success("Reminder job ran", {
+        description: `Checked ${data?.checked ?? 0} admin(s), reminded ${data?.reminded ?? 0}, skipped ${data?.skipped ?? 0}.`,
+      });
+    } catch (err: any) {
+      error("Error", `Job failed: ${err.message}`);
     }
-    toast.success("Reminder job ran", {
-      description: `Checked ${data?.checked ?? 0} admin(s), reminded ${data?.reminded ?? 0}, skipped ${data?.skipped ?? 0}.`,
-    });
+    setRunningJob(false);
     void loadMembers();
     void loadActivity();
   };
@@ -271,7 +208,7 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
   const handleForceReset = async (member: MemberSecurity) => {
     const guard = canReset(member);
     if (!guard.ok) {
-      toast.error(guard.reason);
+      error("Error", guard.reason);
       return;
     }
 
@@ -284,39 +221,38 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
       description: "Authenticating request",
     });
 
-    const { data, error } = await supabase.functions.invoke("force-2fa-reenroll", {
-      body: { target_user_id: member.user_id, confirmed_name: fullName },
-    });
-
-    if (error || data?.error) {
-      const message = data?.error || error?.message || "Unknown error";
-      toast.error(`Failed: ${message}`, { id: toastId });
-      setResetting(null);
-      return;
-    }
-
-    // Animate granular stages from the server response
-    const stages = (data?.stages || []) as Array<{ key: string; label: string; count: number; ok: boolean }>;
-    for (let i = 0; i < stages.length; i++) {
-      const s = stages[i];
-      toast.loading(`${s.label}…`, {
-        id: toastId,
-        description: s.count > 0 ? `${s.count} item${s.count !== 1 ? "s" : ""}` : "Nothing to revoke",
+    try {
+      const res = await api.post<{ data: any }>("/api/security/force-2fa-reenroll", {
+        target_user_id: member.user_id, confirmed_name: fullName
       });
-      // Brief delay so the user can read each stage
-      await new Promise((r) => setTimeout(r, 350));
-    }
+      const data = res.data;
 
-    toast.success(`2FA reset for ${fullName}`, {
-      id: toastId,
-      description: `${data?.revoked_factors ?? 0} factor(s) · ${data?.revoked_recovery_codes ?? 0} recovery code(s) · ${data?.revoked_trusted_devices ?? 0} device(s)`,
-      action: data?.audit_log_id
-        ? {
-            label: "View audit",
-            onClick: () => void openAuditByResource(member.user_id, "2fa_force_reenroll", `Force re-enroll for ${fullName}`),
-          }
-        : undefined,
-    });
+      // Animate granular stages from the server response
+      const stages = (data?.stages || []) as Array<{ key: string; label: string; count: number; ok: boolean }>;
+      for (let i = 0; i < stages.length; i++) {
+        const s = stages[i];
+        toast.loading(`${s.label}?`, {
+          id: toastId,
+          description: s.count > 0 ? `${s.count} item${s.count !== 1 ? "s" : ""}` : "Nothing to revoke",
+        });
+        // Brief delay so the user can read each stage
+        await new Promise((r) => setTimeout(r, 350));
+      }
+
+      success(`2FA reset for ${fullName}`, {
+        id: toastId,
+        description: `${data?.revoked_factors ?? 0} factor(s) · ${data?.revoked_recovery_codes ?? 0} recovery code(s) · ${data?.revoked_trusted_devices ?? 0} device(s)`,
+        action: data?.audit_log_id
+          ? {
+              label: "View audit",
+              onClick: () => void openAuditByResource(member.user_id, "2fa_force_reenroll", `Force re-enroll for ${fullName}`),
+            }
+          : undefined,
+      });
+
+    } catch (err: any) {
+      error(`Failed: ${err.message}`, { id: toastId });
+    }
 
     setResetting(null);
     void loadMembers();
@@ -334,17 +270,16 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
   ) => {
     if (!organizationId) return;
     setAuditModal({ loading: true, entry: null, context });
-    const actions = Array.isArray(action) ? action : [action];
-    const { data } = await supabase
-      .from("audit_logs")
-      .select("id, action, details, user_name, resource_type, resource_id, risk_level, created_at")
-      .eq("organization_id", organizationId)
-      .eq("resource_id", resourceId)
-      .in("action", actions)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setAuditModal({ loading: false, entry: data as AuditEntry | null, context });
+    const actions = Array.isArray(action) ? action.join(",") : action;
+    try {
+      const res = await api.get<{ data: AuditEntry[] }>(
+        `/api/audit_logs?resource_id=${resourceId}&action=${actions}&limit=1`
+      );
+      setAuditModal({ loading: false, entry: res.data?.[0] || null, context });
+    } catch (err) {
+      console.error(err);
+      setAuditModal({ loading: false, entry: null, context });
+    }
   };
 
   const totalReminderPages = Math.max(1, Math.ceil(reminderTotal / REMINDERS_PAGE_SIZE));
@@ -527,7 +462,7 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
                   <button
                     onClick={() => {
                       if (!guard.ok) {
-                        toast.error(guard.reason);
+                        error("Error", guard.reason);
                         return;
                       }
                       setConfirmName("");
@@ -797,3 +732,4 @@ export default function SecurityOverviewSection({ onBack }: SecurityProps) {
     </div>
   );
 }
+

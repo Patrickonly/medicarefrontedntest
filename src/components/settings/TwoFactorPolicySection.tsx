@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, ShieldCheck, Loader2, Save, KeyRound, Globe, Smartphone, Lock, AlertTriangle,
 } from "lucide-react";
@@ -41,7 +41,8 @@ const TRUST_OPTIONS: { value: TrustDuration; label: string }[] = [
 interface Props { onBack: () => void }
 
 export default function TwoFactorPolicySection({ onBack }: Props) {
-  const { user, organizationId, userRole } = useAuth();
+  const { success, error: toastError } = useToast();
+  const { organizationId, userRole } = useAuth();
   const isAdmin = userRole === "org_owner" || userRole === "admin" || userRole === "super_admin" || userRole === "director";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,34 +56,40 @@ export default function TwoFactorPolicySection({ onBack }: Props) {
   const load = async () => {
     if (!organizationId) return;
     setLoading(true);
-    const { data } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    const existing = (data?.settings as { two_factor_policy?: Partial<PolicyShape> } | null)?.two_factor_policy;
-    setPolicy({ ...DEFAULTS, ...(existing || {}) });
-    setLoading(false);
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: { two_factor_policy?: Partial<PolicyShape> } } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const existing = res.data?.settings?.two_factor_policy;
+      setPolicy({ ...DEFAULTS, ...(existing || {}) });
+    } catch (loadError: any) {
+      toastError("Error", loadError.message || "Failed to load 2FA policy");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const save = async () => {
     if (!organizationId || !isAdmin) return;
     setSaving(true);
-    const { data: cur } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    const next = { ...((cur?.settings as Record<string, unknown>) || {}), two_factor_policy: policy };
-    const { error } = await supabase.from("organizations").update({ settings: next as never }).eq("id", organizationId);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("2FA policy updated");
-      await supabase.from("audit_logs").insert({
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const existing = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      await api.put(`/api/organizations?id=${organizationId}`, {
+        settings: { ...existing, two_factor_policy: policy },
+      }, { organizationId });
+
+      success("Success", "2FA policy updated");
+      await api.post("/api/audit-logs", {
         action: "org_2fa_policy_updated",
-        user_id: user?.id,
-        user_name: user?.email,
-        organization_id: organizationId,
         resource_type: "organization",
         resource_id: organizationId,
         risk_level: "medium",
         details: `enforcement=${policy.enforcement}, trust=${policy.trust_duration_days}d, recovery_required=${policy.require_recovery_codes}, admins_only=${policy.applies_to_admins_only}`,
-      });
+      }).catch(() => undefined);
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save 2FA policy");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   if (loading) {

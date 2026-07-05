@@ -79,14 +79,14 @@ export const reducer = (state: State, action: Action): State => {
     case "UPDATE_TOAST":
       return {
         ...state,
-        toasts: state.toasts.map((t) => (t.id === action.toast.id ? { ...t, ...action.toast } : t)),
+        toasts: state.toasts.map((t) =>
+          t.id === action.toast.id ? { ...t, ...action.toast } : t
+        ),
       };
 
     case "DISMISS_TOAST": {
       const { toastId } = action;
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId);
       } else {
@@ -103,7 +103,7 @@ export const reducer = (state: State, action: Action): State => {
                 ...t,
                 open: false,
               }
-            : t,
+            : t
         ),
       };
     }
@@ -163,6 +163,38 @@ function toast({ ...props }: Toast) {
   };
 }
 
+function success(title: string, description?: string) {
+  return toast({
+    variant: "success",
+    title,
+    description,
+  });
+}
+
+function error(title: string, description?: string) {
+  return toast({
+    variant: "destructive",
+    title,
+    description,
+  });
+}
+
+function warning(title: string, description?: string) {
+  return toast({
+    variant: "warning",
+    title,
+    description,
+  });
+}
+
+function info(title: string, description?: string) {
+  return toast({
+    variant: "info",
+    title,
+    description,
+  });
+}
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
@@ -180,7 +212,11 @@ function useToast() {
     ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    success,
+    error,
+    warning,
+    info,
   };
 }
 
-export { useToast, toast };
+export { useToast, toast, success, error, warning, info };

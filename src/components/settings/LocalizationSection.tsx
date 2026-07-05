@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Loader2, Globe, Clock, DollarSign } from "lucide-react";
 
 interface LocalizationProps {
@@ -60,6 +60,7 @@ const DATE_FORMATS = [
 ];
 
 export default function LocalizationSection({ onBack }: LocalizationProps) {
+  const { success, error: toastError } = useToast();
   const { organizationId, userRole } = useAuth();
   const [saving, setSaving] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -75,27 +76,33 @@ export default function LocalizationSection({ onBack }: LocalizationProps) {
 
   const fetchSettings = async () => {
     if (!organizationId) return;
-    const { data } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    if (data) {
-      const s = data.settings as Record<string, unknown> | null;
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const s = res.data?.settings;
       if (s?.language) setLanguage(s.language as string);
       if (s?.timezone) setTimezone(s.timezone as string);
       if (s?.currency) setCurrency(s.currency as string);
       if (s?.date_format) setDateFormat(s.date_format as string);
+    } catch (fetchError: any) {
+      toastError("Error", fetchError.message || "Failed to load localization settings");
     }
   };
 
   const handleSave = async () => {
     if (!organizationId || !isOwnerOrAdmin) return;
     setSaving(true);
-    const { data: org } = await supabase.from("organizations").select("settings").eq("id", organizationId).single();
-    const existing = (org?.settings as Record<string, unknown>) || {};
-    const { error } = await supabase.from("organizations").update({
-      settings: { ...existing, language, timezone, currency, date_format: dateFormat },
-    }).eq("id", organizationId);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Localization settings saved");
+    try {
+      const res = await api.get<{ success: boolean; data: { settings?: Record<string, unknown> } }>(`/api/organizations?id=${organizationId}`, { organizationId });
+      const existing = (res.data?.settings && typeof res.data.settings === "object" ? res.data.settings : {}) as Record<string, unknown>;
+      await api.put(`/api/organizations?id=${organizationId}`, {
+        settings: { ...existing, language, timezone, currency, date_format: dateFormat },
+      }, { organizationId });
+      success("Success", "Localization settings saved");
+    } catch (saveError: any) {
+      toastError("Error", saveError.message || "Failed to save localization settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const selectClass = "medicare-input appearance-none bg-background";

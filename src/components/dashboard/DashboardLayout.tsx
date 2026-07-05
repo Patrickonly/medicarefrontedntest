@@ -81,13 +81,6 @@ export default function DashboardLayout() {
 
   const sections = getSidebarSections(dashboardScope);
 
-  const getPageTitle = (path: string) => {
-    const allItems = sections.flatMap((m) => m.items);
-    const item = allItems.find((i) => i.path === path);
-    if (item) return item.label;
-    return "Dashboard";
-  };
-
   const isActivePath = (path: string) => location.pathname === path || (path !== "/dashboard" && location.pathname.startsWith(path));
 
   const isAccountItemActive = (path: string) => {
@@ -260,10 +253,8 @@ export default function DashboardLayout() {
             </button>
 
               <div className="min-w-0 flex items-center gap-4">
-                <p className="hidden truncate font-heading text-sm font-extrabold text-[#09111f] sm:block">
-                  {getPageTitle(location.pathname)}
-                </p>
-
+                {/* Page title removed from the header - each page renders its own
+                    title/breadcrumb, so showing it here duplicated it. */}
               <div className="hidden md:flex items-center gap-1.5 rounded-full border border-[#dcebf0] bg-[#f4fbfb] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0aa9ad]">
                 {getRoleLabelString()}
               </div>

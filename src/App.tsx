@@ -61,6 +61,8 @@ const UsersPage = lazy(() => import("./pages/dashboard/users/UsersPage"));
 const AddUserPage = lazy(() => import("./pages/dashboard/users/AddUserPage"));
 const EditUserPage = lazy(() => import("./pages/dashboard/users/EditUserPage"));
 const OrganizationsPage = lazy(() => import("./pages/dashboard/organizations/OrganizationsPage"));
+const AddOrganizationPage = lazy(() => import("./pages/dashboard/organizations/AddOrganizationPage"));
+const EditOrganizationPage = lazy(() => import("./pages/dashboard/organizations/EditOrganizationPage"));
 const BranchesPage = lazy(() => import("./pages/dashboard/branches/BranchesPage"));
 const RolesPermissionsPage = lazy(() => import("./pages/dashboard/roles-permissions/RolesPermissionsPage"));
 const SubscriptionsPage = lazy(() => import("./pages/dashboard/subscriptions/SubscriptionsPage"));
@@ -202,6 +204,8 @@ const App = () => (
                 <Route path="audit-logs" element={<SuperAdminRoute><AuditLogsPage /></SuperAdminRoute>} />
                 <Route path="discounts" element={<DiscountRequestsPage />} />
                 <Route path="organizations" element={<SuperAdminRoute><OrganizationsPage /></SuperAdminRoute>} />
+                <Route path="organizations/add" element={<SuperAdminRoute><AddOrganizationPage /></SuperAdminRoute>} />
+                <Route path="organizations/edit/:id" element={<SuperAdminRoute><EditOrganizationPage /></SuperAdminRoute>} />
                 <Route path="branches" element={<BranchesPage />} />
                 <Route path="roles-permissions" element={<SuperAdminRoute><RolesPermissionsPage /></SuperAdminRoute>} />
                 <Route path="subscriptions" element={<SuperAdminRoute><SubscriptionsPage /></SuperAdminRoute>} />

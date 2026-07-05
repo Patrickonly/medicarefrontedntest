@@ -7,13 +7,12 @@ import {
   Eye, Mail, Phone, Globe, MapPin, FileText, Hash, BadgeCheck, Calendar, Tags,
   Home, ChevronRight, PlusCircle,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,7 +21,6 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -44,30 +42,40 @@ interface KpiCardDef {
   accent: KpiAccent;
 }
 
-const kpiAccent: Record<KpiAccent, { grad: string; ring: string; icon: string; blob: string }> = {
+// Each card carries a distinct soft-colored background + matching border and a
+// solid icon chip, so the four KPIs read as clearly different at a glance.
+const kpiAccent: Record<KpiAccent, { card: string; title: string; value: string; hint: string; icon: string; blob: string }> = {
   teal: {
-    grad: "from-[#0aa9ad]/[0.07] to-transparent",
-    ring: "ring-[#0aa9ad]/15",
-    icon: "bg-[#0aa9ad]/10 text-[#0aa9ad] border-[#0aa9ad]/15",
-    blob: "bg-[#0aa9ad]/10",
+    card: "bg-gradient-to-br from-teal-50 to-cyan-50/60 border-teal-100",
+    title: "text-teal-700/80",
+    value: "text-teal-950",
+    hint: "text-teal-600/70",
+    icon: "bg-[#0aa9ad] text-white",
+    blob: "bg-teal-300/30",
   },
   emerald: {
-    grad: "from-emerald-500/[0.07] to-transparent",
-    ring: "ring-emerald-500/15",
-    icon: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    blob: "bg-emerald-400/10",
+    card: "bg-gradient-to-br from-emerald-50 to-green-50/60 border-emerald-100",
+    title: "text-emerald-700/80",
+    value: "text-emerald-950",
+    hint: "text-emerald-600/70",
+    icon: "bg-emerald-500 text-white",
+    blob: "bg-emerald-300/30",
   },
   indigo: {
-    grad: "from-indigo-500/[0.07] to-transparent",
-    ring: "ring-indigo-500/15",
-    icon: "bg-indigo-50 text-indigo-600 border-indigo-100",
-    blob: "bg-indigo-400/10",
+    card: "bg-gradient-to-br from-indigo-50 to-violet-50/60 border-indigo-100",
+    title: "text-indigo-700/80",
+    value: "text-indigo-950",
+    hint: "text-indigo-600/70",
+    icon: "bg-indigo-500 text-white",
+    blob: "bg-indigo-300/30",
   },
   slate: {
-    grad: "from-slate-500/[0.06] to-transparent",
-    ring: "ring-slate-400/15",
-    icon: "bg-slate-100 text-slate-600 border-slate-200",
-    blob: "bg-slate-400/10",
+    card: "bg-gradient-to-br from-slate-50 to-slate-100/60 border-slate-200",
+    title: "text-slate-600",
+    value: "text-slate-900",
+    hint: "text-slate-500",
+    icon: "bg-slate-500 text-white",
+    blob: "bg-slate-300/30",
   },
 };
 
@@ -75,22 +83,20 @@ function PremiumKpiCard({ kpi }: { kpi: KpiCardDef }) {
   const a = kpiAccent[kpi.accent];
   return (
     <Card
-      className={`group relative overflow-hidden rounded-2xl border-slate-200/70 bg-white shadow-sm ring-1 ring-inset ${a.ring} transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
+      className={`group relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${a.card}`}
     >
-      {/* soft gradient wash */}
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${a.grad}`} />
       {/* decorative blob */}
       <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl ${a.blob}`} />
       <CardContent className="relative p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{kpi.title}</p>
-            <p className="mt-3 text-3xl font-black leading-none tracking-tight text-slate-900 tabular-nums">
+            <p className={`text-xs font-bold uppercase tracking-[0.12em] ${a.title}`}>{kpi.title}</p>
+            <p className={`mt-3 text-3xl font-black leading-none tracking-tight tabular-nums ${a.value}`}>
               {kpi.value.toLocaleString()}
             </p>
-            <p className="mt-2 truncate text-xs font-medium text-slate-400">{kpi.hint}</p>
+            <p className={`mt-2 truncate text-xs font-medium ${a.hint}`}>{kpi.hint}</p>
           </div>
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform duration-300 group-hover:scale-110 ${a.icon}`}>
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${a.icon}`}>
             <kpi.icon className="h-5 w-5" />
           </div>
         </div>
@@ -133,39 +139,21 @@ const composeAddress = (org: any): string | undefined => {
 export default function OrganizationsPage() {
   const { success, error } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Dialog state
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // Dialog / confirm state (delete + status confirm live here; create/edit are
+  // now full pages, not popups).
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [detailsOrg, setDetailsOrg] = useState<any>(null);
-
-  // Form state
   const [editingOrg, setEditingOrg] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "", type: "healthcare", status: "active" });
+  const [statusConfirmOrg, setStatusConfirmOrg] = useState<any>(null);
 
   const { data: organizations = [], isLoading } = useQuery({
     queryKey: ["admin_organizations"],
     queryFn: async () => {
       const res = await api.get<{ success: boolean; data: any[] }>("/api/admin/organizations");
       return res.data || [];
-    },
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: async (data: any) => {
-      if (editingOrg?.id) {
-        return await api.put(`/api/admin/organizations`, { ...data, id: editingOrg.id });
-      }
-      return await api.post("/api/admin/organizations", data);
-    },
-    onSuccess: () => {
-      success("Success", `Organization ${editingOrg ? "updated" : "created"} successfully`);
-      queryClient.invalidateQueries({ queryKey: ["admin_organizations"] });
-      closeDialog();
-    },
-    onError: (err: any) => {
-      error("Error", err.message || "Failed to save organization");
     },
   });
 
@@ -231,7 +219,7 @@ export default function OrganizationsPage() {
     }
   };
 
-  // Inline (single-row) status toggle from the row menu.
+  // Inline (single-row) status toggle - confirmed via a popup before applying.
   const statusMutation = useMutation({
     mutationFn: async (org: any) => {
       const newStatus = isActiveStatus(org.status) ? "inactive" : "active";
@@ -240,42 +228,12 @@ export default function OrganizationsPage() {
     onSuccess: () => {
       success("Success", "Organization status updated");
       queryClient.invalidateQueries({ queryKey: ["admin_organizations"] });
+      setStatusConfirmOrg(null);
     },
     onError: (err: any) => error("Error", err.message || "Failed to update status"),
   });
 
-  const openDialog = (org?: any) => {
-    if (org) {
-      setEditingOrg(org);
-      setFormData({
-        name: org.name || "",
-        email: org.email || "",
-        phone: org.phone || "",
-        type: org.type || "healthcare",
-        status: org.status || "active",
-      });
-    } else {
-      setEditingOrg(null);
-      setFormData({ name: "", email: "", phone: "", type: "healthcare", status: "active" });
-    }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingOrg(null);
-  };
-
   const openDetails = (org: any) => setDetailsOrg(org);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name) {
-      error("Error", "Organization name is required");
-      return;
-    }
-    saveMutation.mutate(formData);
-  };
 
   // Columns used for PDF / Excel / CSV export.
   const exportColumns = [
@@ -345,7 +303,7 @@ export default function OrganizationsPage() {
             <p className="mt-1 text-sm text-slate-500">Manage all tenant organizations on the platform.</p>
           </div>
           <Button
-            onClick={() => openDialog()}
+            onClick={() => navigate("/dashboard/organizations/add")}
             className="group h-11 gap-2 rounded-xl bg-[#0aa9ad] px-5 font-semibold text-white shadow-sm shadow-[#0aa9ad]/20 transition-all hover:bg-[#07969a] hover:shadow-md"
           >
             <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" /> New Organization
@@ -458,10 +416,10 @@ export default function OrganizationsPage() {
                             <DropdownMenuItem onClick={() => openDetails(org)} className="cursor-pointer gap-2">
                               <Eye className="h-4 w-4 text-slate-500" /> View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDialog(org)} className="cursor-pointer gap-2">
+                            <DropdownMenuItem onClick={() => navigate(`/dashboard/organizations/edit/${org.id}`)} className="cursor-pointer gap-2">
                               <Edit className="h-4 w-4 text-slate-500" /> Edit Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => statusMutation.mutate(org)} className="cursor-pointer gap-2">
+                            <DropdownMenuItem onClick={() => setStatusConfirmOrg(org)} className="cursor-pointer gap-2">
                               {isActiveStatus(org.status) ? (
                                 <><XCircle className="h-4 w-4 text-amber-500" /> Set Inactive</>
                               ) : (
@@ -494,91 +452,43 @@ export default function OrganizationsPage() {
         />
       </div>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="rounded-2xl sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{editingOrg ? "Edit Organization" : "New Organization"}</DialogTitle>
-            <DialogDescription>
-              {editingOrg ? "Update the details for this tenant." : "Add a new tenant organization to the platform."}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Organization Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g. Kigali Central Hospital"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
-                <select
-                  id="type"
-                  aria-label="Organization type"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="healthcare">Healthcare</option>
-                  <option value="agrovet">Agrovet</option>
-                  <option value="pharmacy">Pharmacy</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  aria-label="Organization status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Primary Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="contact@organization.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                placeholder="+250 788 123 456"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={closeDialog} className="rounded-xl">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saveMutation.isPending} className="rounded-xl bg-[#0aa9ad] text-white hover:bg-[#07969a]">
-                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Organization"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Status change confirmation */}
+      <AlertDialog open={!!statusConfirmOrg} onOpenChange={(open) => !open && setStatusConfirmOrg(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusConfirmOrg && isActiveStatus(statusConfirmOrg.status) ? "Deactivate" : "Activate"} organization?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusConfirmOrg && isActiveStatus(statusConfirmOrg.status) ? (
+                <>This will set <strong>{statusConfirmOrg?.name}</strong> to <strong>inactive</strong>. Its users will lose access until reactivated.</>
+              ) : (
+                <>This will set <strong>{statusConfirmOrg?.name}</strong> to <strong>active</strong> and restore platform access.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); statusMutation.mutate(statusConfirmOrg); }}
+              disabled={statusMutation.isPending}
+              className={`rounded-xl text-white ${
+                statusConfirmOrg && isActiveStatus(statusConfirmOrg.status)
+                  ? "bg-amber-500 hover:bg-amber-600"
+                  : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+            >
+              {statusMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : statusConfirmOrg && isActiveStatus(statusConfirmOrg.status) ? (
+                "Yes, deactivate"
+              ) : (
+                "Yes, activate"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* View Details */}
       <Dialog open={!!detailsOrg} onOpenChange={(open) => !open && setDetailsOrg(null)}>
@@ -650,7 +560,7 @@ export default function OrganizationsPage() {
                   <Button variant="outline" className="rounded-xl" onClick={() => setDetailsOrg(null)}>Close</Button>
                   <Button
                     className="rounded-xl bg-[#0aa9ad] text-white hover:bg-[#07969a]"
-                    onClick={() => { const o = detailsOrg; setDetailsOrg(null); openDialog(o); }}
+                    onClick={() => { const id = detailsOrg?.id; setDetailsOrg(null); navigate(`/dashboard/organizations/edit/${id}`); }}
                   >
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </Button>

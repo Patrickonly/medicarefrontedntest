@@ -9,9 +9,9 @@ const apiBaseUrl = (() => {
   try {
     const base = import.meta.env.VITE_API_BASE_URL;
     if (typeof base === 'string' && base.trim() !== '') return base.trim().replace(/\/$/, '');
-    return 'https://medicarebackendtest-rnnf.vercel.app';
+    return 'http://localhost:3000';
   } catch {
-    return 'https://medicarebackendtest-rnnf.vercel.app';
+    return 'http://localhost:3000';
   }
 })();
 

@@ -29,16 +29,16 @@ export default function AuditLogsPage() {
   });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
-          <p className="text-slate-500">Track all major changes and operations within the system.</p>
+          <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
+          <p className="text-muted-foreground">Track all major changes and operations within the system.</p>
         </div>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="bg-background/50 border-b border-border py-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[#0aa9ad]" />
             System Events
@@ -58,7 +58,7 @@ export default function AuditLogsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : isError ? (
@@ -75,14 +75,14 @@ export default function AuditLogsPage() {
                     <TableCell>
                       <Badge variant="outline">{log.action}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500 max-w-[320px] truncate" title={log.details || undefined}>
+                    <TableCell className="text-xs text-muted-foreground max-w-[320px] truncate" title={log.details || undefined}>
                       {log.details || "-"}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-slate-500">No audit logs found.</TableCell>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No audit logs found.</TableCell>
                 </TableRow>
               )}
             </TableBody>

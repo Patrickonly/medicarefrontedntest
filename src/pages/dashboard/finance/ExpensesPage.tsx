@@ -5,13 +5,16 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Banknote, Edit2, Plus, Trash2, Loader2 } from "lucide-react";
+import { Banknote, Edit2, Plus, Trash2, Loader2, DollarSign, Activity, TrendingDown } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { PageTransition } from "@/components/ui/page-transition";
+import { TableRowsSkeleton } from "@/components/shared/TableRowsSkeleton";
+import { StatCard } from "@/components/shared/StatCard";
 
 export default function ExpensesPage() {
   const { success, error } = useToast();
@@ -50,13 +53,13 @@ export default function ExpensesPage() {
       return res.data;
     },
     onSuccess: () => {
-      success("Success", { description: "Expense logged." });
+      success("Success", "Expense logged.");
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
     },
     onError: (err: any) => {
-      error("Error", { description: err.message || "Failed to log expense." });
+      error("Error", err.message || "Failed to log expense.");
     }
   });
 
@@ -66,13 +69,13 @@ export default function ExpensesPage() {
       return res.data;
     },
     onSuccess: () => {
-      success("Success", { description: "Expense updated." });
+      success("Success", "Expense updated.");
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
     },
     onError: (err: any) => {
-      error("Error", { description: err.message || "Failed to update expense." });
+      error("Error", err.message || "Failed to update expense.");
     }
   });
 
@@ -81,12 +84,12 @@ export default function ExpensesPage() {
       await api.del(`/api/expenses?id=${id}`);
     },
     onSuccess: () => {
-      success("Deleted", { description: "Expense removed." });
+      success("Deleted", "Expense removed.");
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
     },
     onError: (err: any) => {
-      error("Error", { description: err.message || "Failed to delete expense." });
+      error("Error", err.message || "Failed to delete expense.");
     }
   });
 
@@ -102,7 +105,7 @@ export default function ExpensesPage() {
 
   const handleSave = () => {
     if (!formData.description || formData.amount <= 0) {
-      error("Error", { description: "Valid description and amount required." });
+      error("Error", "Valid description and amount required.");
       return;
     }
 
@@ -128,20 +131,52 @@ export default function ExpensesPage() {
     deleteMutation.mutate(id);
   };
 
-  return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
-          <p className="text-slate-500">Log operational costs and overheads.</p>
-        </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-[#0aa9ad] hover:bg-[#07969a] rounded-xl">
-          <Plus className="w-4 h-4 mr-2" /> Add Expense
-        </Button>
-      </div>
+  const totalAmount = expenses.reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
+  const thisMonthExpenses = expenses.filter((exp: any) => {
+    const d = new Date(exp.date);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+  return (
+    <PageTransition className="min-h-[calc(100vh-64px)] bg-muted font-sans pb-10">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Expenses</h1>
+            <p className="text-muted-foreground mt-1">Log operational costs and overheads.</p>
+          </div>
+          <Button onClick={() => handleOpenDialog()} className="bg-[#0aa9ad] hover:bg-[#07969a] rounded-xl h-10 px-5">
+            <Plus className="w-4 h-4 mr-2" /> Add Expense
+          </Button>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <StatCard
+            icon={DollarSign}
+            label="Total Expenses (All Time)"
+            value={totalAmount}
+            format="currency"
+            colorClass="bg-rose-600 text-white"
+          />
+          <StatCard
+            icon={TrendingDown}
+            label="Expenses (This Month)"
+            value={thisMonthExpenses}
+            format="currency"
+            colorClass="bg-[#f59e0b] text-white"
+          />
+          <StatCard
+            icon={Activity}
+            label="Total Records"
+            value={expenses.length}
+            colorClass="bg-[#0aa9ad] text-white"
+          />
+        </div>
+
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="bg-background/50 border-b border-border py-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Banknote className="w-5 h-5 text-[#0aa9ad]" />
             Recent Expenses
@@ -160,17 +195,13 @@ export default function ExpensesPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-                  </TableCell>
-                </TableRow>
-              ) : expenses.map((exp: any) => (
-                <TableRow key={exp.id}>
+                <TableRowsSkeleton columns={["text", "text", "text", "text", "actions"]} />
+              ) : expenses.map((exp: any, idx: number) => (
+                <TableRow key={exp.id ?? idx}>
                   <TableCell>{new Date(exp.date).toLocaleString()}</TableCell>
                   <TableCell className="font-semibold">{exp.category}</TableCell>
-                  <TableCell className="text-slate-500">{exp.description}</TableCell>
-                  <TableCell className="font-bold text-rose-600">{exp.amount.toLocaleString()} RWF</TableCell>
+                  <TableCell className="text-muted-foreground">{exp.description}</TableCell>
+                  <TableCell className="font-bold text-rose-600">{(Number(exp.amount) || 0).toLocaleString()} RWF</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(exp)} className="text-blue-600">
@@ -203,7 +234,7 @@ export default function ExpensesPage() {
               ))}
               {!isLoading && expenses.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">No expenses recorded.</TableCell>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No expenses recorded.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -264,6 +295,7 @@ export default function ExpensesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

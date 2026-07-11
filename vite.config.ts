@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: "::",
-      port: 3007,
+      port: 3004,
+      strictPort: true,
       proxy: {
         '/api': {
           target: proxyTarget,

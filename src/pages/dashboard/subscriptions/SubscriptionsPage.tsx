@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -14,13 +15,12 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Edit, Loader2, Plus, Receipt, Sparkles, Tag, Trash2 } from "lucide-react";
+import { Edit, Loader2, Plus, Receipt, Sparkles, Tag, Trash2, UserCheck, UserX, ShieldCheck, Layers, BellRing } from "lucide-react";
+import { StatCard } from "@/components/shared/StatCard";
+import { StatCardsSkeleton } from "@/components/shared/StatCardsSkeleton";
 
 interface PlanFeatures {
   code?: string;
@@ -32,38 +32,22 @@ interface PlanFeatures {
   advanced_analytics?: boolean;
 }
 
-const emptyPlanForm = {
-  name: "",
-  price: 0,
-  currency: "RWF",
-  duration_months: 1,
-  max_organizations: 1,
-  description: "",
-  status: "active" as "active" | "inactive",
-  features: { code: "", pos: true, inventory: true, reports: true, branches_limit: 1, users_limit: 1, advanced_analytics: false } as PlanFeatures,
-};
-
-const emptyDiscountForm = { months: 1, discount_percentage: 0 };
+// Removed empty forms as they are now used in dedicated pages
 
 export default function SubscriptionsPage() {
   const { success, error } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<any>(null);
-  const [planForm, setPlanForm] = useState(emptyPlanForm);
   const [planToDelete, setPlanToDelete] = useState<any>(null);
-
-  const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
-  const [editingDiscount, setEditingDiscount] = useState<any>(null);
-  const [discountForm, setDiscountForm] = useState(emptyDiscountForm);
+  const [planToToggleStatus, setPlanToToggleStatus] = useState<any>(null);
   const [discountToDelete, setDiscountToDelete] = useState<any>(null);
 
   const { data: plans = [], isLoading: plansLoading } = useQuery({
     queryKey: ["admin-subscription-plans"],
     queryFn: async () => {
       const res = await api.get<any[]>("/api/admin/subscriptions/plans");
-      return res || [];
+      return Array.isArray(res) ? res : (res?.results || res?.data || []);
     },
   });
 
@@ -71,24 +55,11 @@ export default function SubscriptionsPage() {
     queryKey: ["admin-discount-rules"],
     queryFn: async () => {
       const res = await api.get<any[]>("/api/admin/subscriptions/discount-rules");
-      return res || [];
+      return Array.isArray(res) ? res : (res?.results || res?.data || []);
     },
   });
 
-  const savePlanMutation = useMutation({
-    mutationFn: async (data: typeof planForm) => {
-      if (editingPlan?.id) {
-        return await api.put(`/api/admin/subscriptions/plans?id=${editingPlan.id}`, data);
-      }
-      return await api.post("/api/admin/subscriptions/plans", data);
-    },
-    onSuccess: () => {
-      success("Success", `Plan ${editingPlan ? "updated" : "created"} successfully`);
-      queryClient.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
-      setIsPlanDialogOpen(false);
-    },
-    onError: (err: any) => error("Error", err.message || "Failed to save plan"),
-  });
+  // savePlanMutation is moved to Add/Edit pages
 
   const deletePlanMutation = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/admin/subscriptions/plans?id=${id}`),
@@ -106,24 +77,15 @@ export default function SubscriptionsPage() {
     onSuccess: () => {
       success("Success", "Plan status updated successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
+      setPlanToToggleStatus(null);
     },
-    onError: (err: any) => error("Error", err.message || "Failed to update plan status"),
+    onError: (err: any) => {
+      error("Error", err.message || "Failed to update plan status");
+      setPlanToToggleStatus(null);
+    },
   });
 
-  const saveDiscountMutation = useMutation({
-    mutationFn: async (data: typeof discountForm) => {
-      if (editingDiscount?.id) {
-        return await api.put(`/api/admin/subscriptions/discount-rules?id=${editingDiscount.id}`, data);
-      }
-      return await api.post("/api/admin/subscriptions/discount-rules", data);
-    },
-    onSuccess: () => {
-      success("Success", `Discount rule ${editingDiscount ? "updated" : "created"} successfully`);
-      queryClient.invalidateQueries({ queryKey: ["admin-discount-rules"] });
-      setIsDiscountDialogOpen(false);
-    },
-    onError: (err: any) => error("Error", err.message || "Failed to save discount rule"),
-  });
+  // saveDiscountMutation is moved to Add/Edit pages
 
   const deleteDiscountMutation = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/admin/subscriptions/discount-rules?id=${id}`),
@@ -145,68 +107,79 @@ export default function SubscriptionsPage() {
     onError: (err: any) => error("Error", err.message || "Failed to configure defaults"),
   });
 
-  const openPlanDialog = (plan?: any) => {
-    if (plan) {
-      setEditingPlan(plan);
-      setPlanForm({
-        name: plan.name || "",
-        price: Number(plan.price) || 0,
-        currency: plan.currency || "RWF",
-        duration_months: Number(plan.duration_months) || 1,
-        max_organizations: Number(plan.max_organizations) || 1,
-        description: plan.description || "",
-        status: plan.status === "inactive" ? "inactive" : "active",
-        features: { ...emptyPlanForm.features, ...(plan.features || {}) },
-      });
-    } else {
-      setEditingPlan(null);
-      setPlanForm(emptyPlanForm);
-    }
-    setIsPlanDialogOpen(true);
-  };
-
-  const openDiscountDialog = (rule?: any) => {
-    if (rule) {
-      setEditingDiscount(rule);
-      setDiscountForm({ months: rule.months, discount_percentage: Number(rule.discount_percentage) || 0 });
-    } else {
-      setEditingDiscount(null);
-      setDiscountForm(emptyDiscountForm);
-    }
-    setIsDiscountDialogOpen(true);
-  };
+  // openPlanDialog and openDiscountDialog are replaced by simple navigation
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Subscriptions</h1>
-          <p className="text-sm text-slate-500">Manage platform subscription plans and discount rules.</p>
+    <div className="min-h-screen bg-muted font-sans pb-10">
+      <div className="p-6 max-w-[1600px] mx-auto">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center mb-6">
+          <div>
+            <h1 className="text-[#1e293b] text-3xl font-bold tracking-tight">Subscriptions</h1>
+            <p className="text-muted-foreground text-sm mt-1 font-medium">Manage platform subscription plans and discount rules.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/dashboard/subscriptions/reminders")}
+              className="gap-2 bg-[#ec4899] hover:bg-[#db2777] text-white"
+            >
+              <BellRing className="h-4 w-4" />
+              Payment Reminders
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setupDefaultsMutation.mutate()}
+              disabled={setupDefaultsMutation.isPending}
+              className="gap-2 bg-white hover:bg-muted"
+            >
+              {setupDefaultsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-[#0aa9ad]" />}
+              Setup Default Plans
+            </Button>
+          </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setupDefaultsMutation.mutate()}
-          disabled={setupDefaultsMutation.isPending}
-          className="gap-2"
-        >
-          {setupDefaultsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Setup Default Plans
-        </Button>
-      </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
+        {/* KPI Cards */}
+        {plansLoading || discountsLoading ? <StatCardsSkeleton count={4} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" /> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            icon={Layers}
+            label="Total Plans"
+            value={plans.length}
+            colorClass="bg-[#0aa9ad] text-white"
+          />
+          <StatCard
+            icon={ShieldCheck}
+            label="Active Plans"
+            value={plans.filter((p: any) => p.status?.toLowerCase() === "active").length}
+            colorClass="bg-[#22c55e] text-white"
+          />
+          <StatCard
+            icon={UserX}
+            label="Suspended Plans"
+            value={plans.filter((p: any) => p.status?.toLowerCase() !== "active").length}
+            colorClass="bg-[#f59e0b] text-white"
+          />
+          <StatCard
+            icon={Tag}
+            label="Discount Rules"
+            value={discountRules.length}
+            colorClass="bg-[#6366f1] text-white"
+          />
+        </div>
+        )}
+
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Receipt className="h-5 w-5 text-[#0aa9ad]" />
             Subscription Plans
           </CardTitle>
-          <Button onClick={() => openPlanDialog()} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white">
+          <Button onClick={() => navigate("/dashboard/subscriptions/plans/add")} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white">
             <Plus className="mr-2 h-4 w-4" /> Add Plan
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader className="bg-background/50">
               <TableRow>
                 <TableHead>Plan Name</TableHead>
                 <TableHead>Price</TableHead>
@@ -223,13 +196,13 @@ export default function SubscriptionsPage() {
               {plansLoading ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-24 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : plans.length > 0 ? (
                 plans.map((plan: any) => (
-                  <TableRow key={plan.id} className="hover:bg-slate-50/50">
-                    <TableCell className="font-semibold text-slate-900">{plan.name}</TableCell>
+                  <TableRow key={plan.id} className="hover:bg-background/50">
+                    <TableCell className="font-semibold text-foreground">{plan.name}</TableCell>
                     <TableCell>{plan.currency || "RWF"} {Number(plan.price).toLocaleString()}</TableCell>
                     <TableCell>{plan.duration_months ? `${plan.duration_months} mo` : "-"}</TableCell>
                     <TableCell>{plan.max_organizations ?? "-"}</TableCell>
@@ -244,30 +217,43 @@ export default function SubscriptionsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={plan.status !== "inactive"}
-                          disabled={planStatusMutation.isPending}
-                          onCheckedChange={(checked) =>
-                            planStatusMutation.mutate({ id: plan.id, status: checked ? "active" : "inactive" })
-                          }
-                        />
-                        <span className="text-xs text-slate-500">{plan.status === "inactive" ? "Inactive" : "Active"}</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full ${plan.status?.toLowerCase() === "active" ? "bg-amber-500" : "bg-muted-foreground"}`} />
+                        {plan.status?.toLowerCase() === "active" ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 uppercase tracking-wide border border-amber-200/50">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-muted text-muted-foreground uppercase tracking-wide">
+                            Inactive
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openPlanDialog(plan)} className="text-slate-400 hover:text-[#0aa9ad]">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setPlanToDelete(plan)} className="text-slate-400 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className={`h-7 w-7 rounded shadow-sm transition-colors ${plan.status?.toLowerCase() === "active" ? "border-amber-200 text-amber-500 hover:bg-amber-50 hover:text-amber-600" : "border-emerald-200 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600"}`}
+                          title={plan.status?.toLowerCase() === "active" ? "Suspend" : "Activate"}
+                          onClick={() => setPlanToToggleStatus(plan)}
+                        >
+                          {plan.status?.toLowerCase() === "active" ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => navigate(`/dashboard/subscriptions/plans/edit/${plan.id}`)} className="h-7 w-7 rounded border-blue-200 text-blue-500 hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-sm" title="Edit">
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => setPlanToDelete(plan)} className="h-7 w-7 rounded border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm" title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center text-slate-500">No subscription plans yet.</TableCell>
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">No subscription plans yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -275,19 +261,19 @@ export default function SubscriptionsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Tag className="h-5 w-5 text-[#0aa9ad]" />
             Discount Rules
           </CardTitle>
-          <Button onClick={() => openDiscountDialog()} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white">
+          <Button onClick={() => navigate("/dashboard/subscriptions/discounts/add")} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white">
             <Plus className="mr-2 h-4 w-4" /> Add Discount Rule
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader className="bg-background/50">
               <TableRow>
                 <TableHead>Duration</TableHead>
                 <TableHead>Discount</TableHead>
@@ -298,27 +284,29 @@ export default function SubscriptionsPage() {
               {discountsLoading ? (
                 <TableRow>
                   <TableCell colSpan={3} className="h-24 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : discountRules.length > 0 ? (
                 discountRules.map((rule: any) => (
-                  <TableRow key={rule.id} className="hover:bg-slate-50/50">
-                    <TableCell className="font-semibold text-slate-900">{rule.months} month{rule.months === 1 ? "" : "s"}</TableCell>
+                  <TableRow key={rule.id} className="hover:bg-background/50">
+                    <TableCell className="font-semibold text-foreground">{rule.months} month{rule.months === 1 ? "" : "s"}</TableCell>
                     <TableCell>{Number(rule.discount_percentage)}%</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openDiscountDialog(rule)} className="text-slate-400 hover:text-[#0aa9ad]">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDiscountToDelete(rule)} className="text-slate-400 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="icon" onClick={() => navigate(`/dashboard/subscriptions/discounts/edit/${rule.id}`)} className="h-7 w-7 rounded border-blue-200 text-blue-500 hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-sm" title="Edit">
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => setDiscountToDelete(rule)} className="h-7 w-7 rounded border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm" title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center text-slate-500">No discount rules yet.</TableCell>
+                  <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">No discount rules yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -326,138 +314,20 @@ export default function SubscriptionsPage() {
         </CardContent>
       </Card>
 
-      {/* Plan Dialog */}
-      <Dialog open={isPlanDialogOpen} onOpenChange={setIsPlanDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingPlan ? "Edit Plan" : "Add Plan"}</DialogTitle>
-            <DialogDescription>Define pricing, limits, and included modules for this plan.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Plan Name</Label>
-              <Input value={planForm.name} onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })} className="rounded-xl" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Price</Label>
-                <Input type="number" value={planForm.price} onChange={(e) => setPlanForm({ ...planForm, price: Number(e.target.value) || 0 })} className="rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Currency</Label>
-                <Select value={planForm.currency} onValueChange={(v) => setPlanForm({ ...planForm, currency: v })}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="RWF">RWF</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Duration (months)</Label>
-                <Input type="number" min={1} value={planForm.duration_months} onChange={(e) => setPlanForm({ ...planForm, duration_months: Number(e.target.value) || 1 })} className="rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Max Organizations</Label>
-                <Input type="number" min={1} value={planForm.max_organizations} onChange={(e) => setPlanForm({ ...planForm, max_organizations: Number(e.target.value) || 1 })} className="rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Plan Code</Label>
-                <Input value={planForm.features.code || ""} onChange={(e) => setPlanForm({ ...planForm, features: { ...planForm.features, code: e.target.value } })} className="rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Branches Limit</Label>
-                <Input type="number" value={planForm.features.branches_limit ?? 0} onChange={(e) => setPlanForm({ ...planForm, features: { ...planForm.features, branches_limit: Number(e.target.value) || 0 } })} className="rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label>Users Limit</Label>
-                <Input type="number" value={planForm.features.users_limit ?? 0} onChange={(e) => setPlanForm({ ...planForm, features: { ...planForm.features, users_limit: Number(e.target.value) || 0 } })} className="rounded-xl" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={planForm.description}
-                onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-                className="rounded-xl"
-                rows={2}
-                placeholder="Short summary shown to organizations choosing this plan"
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-              <div>
-                <Label>Active</Label>
-                <p className="text-xs text-slate-500">Inactive plans can't be selected for new subscriptions.</p>
-              </div>
-              <Switch
-                checked={planForm.status === "active"}
-                onCheckedChange={(checked) => setPlanForm({ ...planForm, status: checked ? "active" : "inactive" })}
-              />
-            </div>
-            <div className="space-y-3 pt-2">
-              {([
-                ["pos", "Point of Sale"],
-                ["inventory", "Inventory"],
-                ["reports", "Reports"],
-                ["advanced_analytics", "Advanced Analytics"],
-              ] as const).map(([key, label]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <Label>{label}</Label>
-                  <Switch
-                    checked={!!planForm.features[key]}
-                    onCheckedChange={(val) => setPlanForm({ ...planForm, features: { ...planForm.features, [key]: val } })}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPlanDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={() => savePlanMutation.mutate(planForm)} disabled={savePlanMutation.isPending || !planForm.name} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white rounded-xl">
-              {savePlanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Plan"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Discount Rule Dialog */}
-      <Dialog open={isDiscountDialogOpen} onOpenChange={setIsDiscountDialogOpen}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingDiscount ? "Edit Discount Rule" : "Add Discount Rule"}</DialogTitle>
-            <DialogDescription>Discounts auto-apply based on subscription duration.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Duration (months)</Label>
-              <Input type="number" min={1} value={discountForm.months} onChange={(e) => setDiscountForm({ ...discountForm, months: Number(e.target.value) || 1 })} className="rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              <Label>Discount Percentage</Label>
-              <Input type="number" min={0} max={100} value={discountForm.discount_percentage} onChange={(e) => setDiscountForm({ ...discountForm, discount_percentage: Number(e.target.value) || 0 })} className="rounded-xl" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDiscountDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={() => saveDiscountMutation.mutate(discountForm)} disabled={saveDiscountMutation.isPending} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white rounded-xl">
-              {saveDiscountMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Rule"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Removed Dialogs */}
 
       {/* Delete confirmations */}
       <AlertDialog open={!!planToDelete} onOpenChange={(open) => !open && setPlanToDelete(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{planToDelete?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>This plan will no longer be available for new subscriptions. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle className="text-xl font-black text-foreground">Delete "{planToDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium mt-2">This plan will no longer be available for new subscriptions. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletePlanMutation.mutate(planToDelete.id)} disabled={deletePlanMutation.isPending} className="bg-red-600 hover:bg-red-700 text-white rounded-xl">
-              {deletePlanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Plan"}
+          <AlertDialogFooter className="mt-6 gap-3 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl border-border font-bold h-11 hover:bg-muted">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletePlanMutation.mutate(planToDelete.id)} disabled={deletePlanMutation.isPending} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold h-11">
+              {deletePlanMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {deletePlanMutation.isPending ? "Deleting..." : "Delete Plan"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -466,17 +336,71 @@ export default function SubscriptionsPage() {
       <AlertDialog open={!!discountToDelete} onOpenChange={(open) => !open && setDiscountToDelete(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this discount rule?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle className="text-xl font-black text-foreground">Delete this discount rule?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium mt-2">This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteDiscountMutation.mutate(discountToDelete.id)} disabled={deleteDiscountMutation.isPending} className="bg-red-600 hover:bg-red-700 text-white rounded-xl">
-              {deleteDiscountMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Rule"}
+          <AlertDialogFooter className="mt-6 gap-3 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl border-border font-bold h-11 hover:bg-muted">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteDiscountMutation.mutate(discountToDelete.id)} disabled={deleteDiscountMutation.isPending} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold h-11">
+              {deleteDiscountMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {deleteDiscountMutation.isPending ? "Deleting..." : "Delete Rule"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Status Toggle Confirmation */}
+      <AlertDialog open={!!planToToggleStatus} onOpenChange={(open) => !open && setPlanToToggleStatus(null)}>
+        <AlertDialogContent className="rounded-2xl max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-black text-foreground">
+              {planToToggleStatus?.status?.toLowerCase() === "active" ? "Suspend Plan" : "Activate Plan"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium mt-2">
+              Are you sure you want to {planToToggleStatus?.status?.toLowerCase() === "active" ? "suspend" : "activate"}{" "}
+              <span className="font-bold text-foreground">
+                {planToToggleStatus?.name}
+              </span>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl border-border font-bold h-11 hover:bg-muted">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (planToToggleStatus) {
+                  planStatusMutation.mutate({
+                    id: planToToggleStatus.id,
+                    status: planToToggleStatus.status?.toLowerCase() === "active" ? "inactive" : "active",
+                  });
+                }
+              }}
+              disabled={planStatusMutation.isPending}
+              className={`${
+                planToToggleStatus?.status?.toLowerCase() === "active" 
+                  ? "bg-amber-500 hover:bg-amber-600 text-white" 
+                  : "bg-emerald-500 hover:bg-emerald-600 text-white"
+              } rounded-xl font-bold h-11`}
+            >
+              {planStatusMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : planToToggleStatus?.status?.toLowerCase() === "active" ? (
+                <UserX className="mr-2 h-4 w-4" />
+              ) : (
+                <UserCheck className="mr-2 h-4 w-4" />
+              )}
+              {planStatusMutation.isPending
+                ? "Updating..."
+                : planToToggleStatus?.status?.toLowerCase() === "active"
+                ? "Suspend Plan"
+                : "Activate Plan"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      </div>
     </div>
   );
 }

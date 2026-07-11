@@ -27,7 +27,7 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-white text-slate-900 border-slate-200",
+        default: "bg-card text-foreground border-border",
         success: "bg-green-600 text-white border-green-600",
         destructive: "bg-red-600 text-white border-red-600",
         warning: "bg-yellow-500 text-white border-yellow-500",
@@ -54,7 +54,7 @@ const Toast = React.forwardRef<
       <div className="relative w-full">
         {props.children}
         <div 
-          className="absolute bottom-0 left-0 h-1 bg-white/40"
+          className="absolute bottom-0 left-0 h-1 bg-card/40"
           style={{
             animation: `toast-progress ${duration}ms linear forwards`,
           }}
@@ -72,7 +72,7 @@ const ToastAction = React.forwardRef<
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
-      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-card/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}
@@ -87,7 +87,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-3 top-3 rounded-md p-1 text-white/70 hover:text-white hover:bg-white/20 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white",
+      "absolute right-3 top-3 rounded-md p-1 text-white/70 hover:text-white hover:bg-card/20 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white",
       className,
     )}
     toast-close=""

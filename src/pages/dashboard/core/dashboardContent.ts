@@ -14,6 +14,7 @@ import {
   CalendarCheck2,
   ClipboardList,
   CreditCard,
+  Crown,
   FileClock,
   FileText,
   Gauge,
@@ -34,6 +35,7 @@ import {
   UserCog,
   UserPlus,
   Users,
+  Wallet,
   Warehouse,
   type Icon as IconType,
 } from "lucide-react";
@@ -51,6 +53,7 @@ export interface SidebarLink {
   icon: LucideIcon;
   label: string;
   path: string;
+  subItems?: { label: string; path: string }[];
 }
 
 export interface SidebarGroup {
@@ -108,32 +111,71 @@ export interface DashboardViewModel {
 
 const SUPER_ADMIN_LINKS: SidebarGroup[] = [
   {
-    label: "Main Menu",
+    label: "Management",
     items: [
-      { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: Building2, label: "Organization Management", path: "/dashboard/organizations" },
       { icon: Warehouse, label: "Branch Management", path: "/dashboard/branches" },
       { icon: Users, label: "User Management", path: "/dashboard/users" },
       { icon: UserCog, label: "Roles And Permissions", path: "/dashboard/roles-permissions" },
       { icon: Tags, label: "Organization Types", path: "/dashboard/organization-types" },
-      { icon: Ticket, label: "Support", path: "/dashboard/support" },
+    ],
+  },
+  {
+    label: "Financial & Billing",
+    items: [
+      { icon: CreditCard, label: "Subscriptions", path: "/dashboard/subscriptions" },
+      { icon: Crown, label: "Organization Subscriptions", path: "/dashboard/organization-subscriptions" },
+      { icon: Bell, label: "Payment Reminders", path: "/dashboard/subscriptions/reminders" },
       { icon: ShieldCheck, label: "Audit Logs", path: "/dashboard/audit-logs" },
+      { icon: Ticket, label: "Support", path: "/dashboard/support" },
     ],
   },
 ];
 
 const ADMIN_LINKS: SidebarGroup[] = [
   {
-    label: "Main Menu",
+    label: "Sales & Transactions",
     items: [
-      { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
-      { icon: ShoppingCart, label: "Sales", path: "/dashboard/pos" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+      { icon: ShoppingCart, label: "Point of Sale", path: "/dashboard/pos" },
+      { icon: Receipt, label: "Sales History", path: "/dashboard/sales-history" },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
+      { icon: Tags, label: "Categories", path: "/dashboard/categories" },
+      { icon: Package, label: "Product Types", path: "/dashboard/product-types" },
       { icon: Boxes, label: "Inventory", path: "/dashboard/inventory" },
       { icon: Receipt, label: "Purchases", path: "/dashboard/purchase-orders" },
-      { icon: Users, label: "Customers", path: "/dashboard/customers" },
       { icon: Truck, label: "Suppliers", path: "/dashboard/suppliers" },
-      { icon: CalendarCheck2, label: "Cash Sessions", path: "/dashboard/shifts" },
-      { icon: BarChart3, label: "Reports", path: "/dashboard/reports" },
+    ],
+  },
+  {
+    label: "Financial",
+    items: [
+      { icon: Wallet, label: "Expenses", path: "/dashboard/expenses" },
+      { icon: CreditCard, label: "Manage Credit", path: "/dashboard/credit-payments" },
+      { 
+        icon: BarChart3, 
+        label: "Reports", 
+        path: "/dashboard/reports",
+        subItems: [
+          { label: "Sales Report", path: "/dashboard/reports" },
+          { label: "Monthly Report", path: "/dashboard/reports/monthly" },
+        ]
+      },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { icon: Users, label: "Users", path: "/dashboard/users" },
+      { icon: Users, label: "Customers", path: "/dashboard/customers" },
+      { icon: CalendarCheck2, label: "Shift Management", path: "/dashboard/shifts" },
+      { icon: Building2, label: "Settings & Profile", path: "/dashboard/settings" },
+      { icon: Crown, label: "My Subscription", path: "/dashboard/my-subscription" },
       { icon: Ticket, label: "Support", path: "/dashboard/support" },
     ],
   },
@@ -141,50 +183,86 @@ const ADMIN_LINKS: SidebarGroup[] = [
 
 const AGROVET_OWNER_LINKS: SidebarGroup[] = [
   {
-    label: "Main Menu",
+    label: "Sales & Transactions",
     items: [
-      { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: ShoppingCart, label: "POS", path: "/dashboard/agrovet/pos" },
-      { icon: CalendarCheck2, label: "Shifts", path: "/dashboard/agrovet/shifts" },
+      { icon: Receipt, label: "Sales History", path: "/dashboard/sales-history" },
       { icon: BadgePercent, label: "Discounts", path: "/dashboard/agrovet/discounts" },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
       { icon: Boxes, label: "Inventory", path: "/dashboard/inventory" },
       { icon: ClipboardList, label: "Purchasing (GRN)", path: "/dashboard/agrovet/purchasing" },
+      { icon: Truck, label: "Suppliers", path: "/dashboard/suppliers" },
+    ],
+  },
+  {
+    label: "Financial",
+    items: [
       { icon: Banknote, label: "Payables", path: "/dashboard/agrovet/payables" },
       { icon: BookOpen, label: "Accounting", path: "/dashboard/agrovet/accounting" },
       { icon: CreditCard, label: "Customer Credit", path: "/dashboard/agrovet/credit" },
-      { icon: Users, label: "Customers", path: "/dashboard/customers" },
-      { icon: Truck, label: "Suppliers", path: "/dashboard/suppliers" },
-      { icon: Users, label: "Users", path: "/dashboard/users" },
       { icon: Gauge, label: "KPI", path: "/dashboard/agrovet/kpi" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { icon: CalendarCheck2, label: "Shifts", path: "/dashboard/agrovet/shifts" },
+      { icon: Users, label: "Customers", path: "/dashboard/customers" },
+      { icon: Users, label: "Users", path: "/dashboard/users" },
       { icon: Bell, label: "Alerts", path: "/dashboard/agrovet/alerts" },
       { icon: ShieldCheck, label: "Audit Logs", path: "/dashboard/agrovet/audit-logs" },
+      { icon: Crown, label: "My Subscription", path: "/dashboard/my-subscription" },
+      { icon: Ticket, label: "Support", path: "/dashboard/support" },
     ],
   },
 ];
 
 const AGROVET_ACCOUNTANT_LINKS: SidebarGroup[] = [
   {
-    label: "Main Menu",
+    label: "Sales & Transactions",
     items: [
-      { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: BadgePercent, label: "Discounts", path: "/dashboard/agrovet/discounts" },
+    ],
+  },
+  {
+    label: "Financial",
+    items: [
       { icon: ClipboardList, label: "Purchasing (GRN)", path: "/dashboard/agrovet/purchasing" },
       { icon: Banknote, label: "Payables", path: "/dashboard/agrovet/payables" },
       { icon: BookOpen, label: "Accounting", path: "/dashboard/agrovet/accounting" },
       { icon: CreditCard, label: "Customer Credit", path: "/dashboard/agrovet/credit" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
       { icon: Bell, label: "Alerts", path: "/dashboard/agrovet/alerts" },
+      { icon: Ticket, label: "Support", path: "/dashboard/support" },
     ],
   },
 ];
 
 const AGROVET_CASHIER_LINKS: SidebarGroup[] = [
   {
-    label: "Main Menu",
+    label: "Sales & Transactions",
     items: [
-      { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
       { icon: ShoppingCart, label: "POS", path: "/dashboard/agrovet/pos" },
-      { icon: CalendarCheck2, label: "Shifts", path: "/dashboard/agrovet/shifts" },
+      { icon: Receipt, label: "Sales History", path: "/dashboard/sales-history" },
       { icon: BadgePercent, label: "Discounts", path: "/dashboard/agrovet/discounts" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { icon: CalendarCheck2, label: "Shifts", path: "/dashboard/agrovet/shifts" },
+      { icon: Ticket, label: "Support", path: "/dashboard/support" },
     ],
   },
 ];
@@ -195,7 +273,7 @@ const toneIconMap: Record<SummaryCard["tone"], string> = {
   amber: "bg-amber-50 text-amber-700 border-amber-200",
   rose: "bg-rose-50 text-rose-700 border-rose-200",
   violet: "bg-violet-50 text-violet-700 border-violet-200",
-  slate: "bg-slate-100 text-slate-700 border-slate-200",
+  slate: "bg-muted text-slate-700 border-border",
 };
 
 export const getToneClass = (tone: SummaryCard["tone"]) => toneIconMap[tone];
@@ -234,8 +312,10 @@ export const getSidebarSections = (scope: DashboardScope): SidebarGroup[] => {
     {
       label: "Workspace",
       items: [
-        { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
-        { icon: ShoppingCart, label: "Sales", path: "/dashboard/pos" },
+        { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+        { icon: ShoppingCart, label: "Point of Sale", path: "/dashboard/pos" },
+        { icon: Receipt, label: "Sales History", path: "/dashboard/sales-history" },
+        { icon: Ticket, label: "Support", path: "/dashboard/support" },
         { icon: Users, label: "Customers", path: "/dashboard/customers" },
       ],
     },
@@ -354,7 +434,7 @@ const ADMIN_VIEW: DashboardViewModel = {
   actionCards: [
     { label: "Recent sales", description: "Review the latest invoices and daily checkout activity.", href: "/dashboard/pos", icon: ShoppingCart, tone: "emerald" },
     { label: "Recent purchases", description: "Track supplier orders and goods received.", href: "/dashboard/purchase-orders", icon: Receipt, tone: "amber" },
-    { label: "Cash sessions", description: "Open and close tills with full cash control.", href: "/dashboard/shifts", icon: CalendarCheck2, tone: "blue" },
+    { label: "Shift Management", description: "Open and close tills with full cash control.", href: "/dashboard/shifts", icon: CalendarCheck2, tone: "blue" },
     { label: "Branch performance", description: "Compare sales and operational output by branch.", href: "/dashboard/reports", icon: BarChart3, tone: "violet" },
     { label: "Staff performance", description: "Review productivity and workload by team member.", href: "/dashboard/users", icon: Users, tone: "slate" },
     { label: "Inventory alerts", description: "Spot low stock, expiring stock, and adjustment events.", href: "/dashboard/inventory", icon: Boxes, tone: "rose" },

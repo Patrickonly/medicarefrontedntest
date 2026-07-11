@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
@@ -22,6 +23,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+interface LookupBatch {
+  id: string;
+  batch_number: string;
+  quantity_remaining: number;
+  selling_price: string | number;
+  expiry_date: string | null;
+}
+
 interface LookupProduct {
   id: string;
   name: string;
@@ -32,15 +41,17 @@ interface LookupProduct {
   selling_price: number;
   tax_rate?: number;
   stock: number;
+  batches?: LookupBatch[];
 }
 
 interface CartItem {
   productId: string;
+  batchId: string;
   name: string;
   uom: string;
   price: number;
   quantity: number;
-  maxQuantity: number;
+  batchStock: number;
 }
 
 const formatCurrency = (value: number) =>
@@ -77,7 +88,8 @@ export default function AgrovetPOSPage() {
     queryKey: ["customers", organizationId],
     queryFn: async () => {
       const res = await api.get<any[]>("/api/customers");
-      return res || [];
+      const list = Array.isArray(res) ? res : (res?.results || res?.data || []);
+      return list.map((c: any) => ({ ...c, name: c.full_name || c.name }));
     },
     enabled: !!organizationId,
   });
@@ -85,13 +97,24 @@ export default function AgrovetPOSPage() {
   const { data: results = [], isFetching: isSearching } = useQuery({
     queryKey: ["agrovet-pos-lookup", query, department],
     queryFn: async () => {
-      if (!query.trim()) return [];
-      const params = new URLSearchParams({ q: query.trim() });
+      // No search term means "show the catalog" (backend returns up to 25
+      // active products unfiltered) - cashiers shouldn't have to type before
+      // seeing anything sellable, same as the Inventory list they already see.
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
       if (department) params.set("department", department);
-      const res = await api.get<{ success: boolean; data: LookupProduct[] }>(`/api/agrovet/pos/lookup?${params}`);
+      const qs = params.toString();
+      const res = await api.get<{ success: boolean; data: LookupProduct[] }>(`/api/agrovet/pos/lookup${qs ? `?${qs}` : ""}`);
       return res.data || [];
     },
-    enabled: !!organizationId && query.trim().length > 0,
+    enabled: !!organizationId,
+    // Stock shown here must be trustworthy at the till, so this overrides
+    // the app-wide 1-minute staleTime/no-refetch-on-focus defaults - a
+    // cashier switching back to this tab (or another cashier's sale landing
+    // in the meantime) should see current quantities, not a stale snapshot.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15000,
   });
 
   const lookupBarcode = async (code: string) => {
@@ -113,33 +136,46 @@ export default function AgrovetPOSPage() {
     setBarcode("");
   };
 
+  // Remaining stock shown on a product card must live-decrease as items are
+  // added to the cart and live-increase as they're removed - the server only
+  // touches real stock once the sale is submitted, so until then this is
+  // pure client-side math: batch stock minus whatever's already in the cart.
+  const remainingForBatch = (batchId: string, batchStock: number) => {
+    const inCart = cart.filter((i) => i.batchId === batchId).reduce((sum, i) => sum + i.quantity, 0);
+    return batchStock - inCart;
+  };
+
   const addToCart = (product: LookupProduct) => {
-    if (product.stock <= 0) {
+    // Batches are already sell-first ordered by the API - take the first
+    // one with stock left (accounting for what's already in the cart).
+    const batch = (product.batches || []).find((b) => remainingForBatch(b.id, b.quantity_remaining) > 0);
+    const batchId = batch?.id || product.id;
+    const batchStock = batch ? batch.quantity_remaining : product.stock;
+    const price = batch ? Number(batch.selling_price) : product.selling_price;
+
+    if (remainingForBatch(batchId, batchStock) <= 0) {
       error("Out of Stock", `${product.name} has no available stock.`);
       return;
     }
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
+      const existing = prev.find((i) => i.batchId === batchId);
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          error("Stock Limit", "Cannot add more than available stock.");
-          return prev;
-        }
-        return prev.map((i) => (i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i));
+        return prev.map((i) => (i.batchId === batchId ? { ...i, quantity: i.quantity + 1 } : i));
       }
       return [
         ...prev,
-        { productId: product.id, name: product.name, uom: product.uom, price: product.selling_price, quantity: 1, maxQuantity: product.stock },
+        { productId: product.id, batchId, name: product.name, uom: product.uom, price, quantity: 1, batchStock },
       ];
     });
   };
 
-  const updateQuantity = (productId: string, change: number) => {
+  const updateQuantity = (batchId: string, change: number) => {
     setCart((prev) =>
       prev.map((item) => {
-        if (item.productId !== productId) return item;
+        if (item.batchId !== batchId) return item;
         const nextQty = item.quantity + change;
-        if (nextQty > item.maxQuantity) {
+        if (nextQty > item.batchStock) {
           error("Stock Limit", "Maximum available stock reached.");
           return item;
         }
@@ -148,8 +184,8 @@ export default function AgrovetPOSPage() {
     );
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((i) => i.productId !== productId));
+  const removeFromCart = (batchId: string) => {
+    setCart((prev) => prev.filter((i) => i.batchId !== batchId));
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -157,28 +193,39 @@ export default function AgrovetPOSPage() {
   const saleMutation = useMutation({
     mutationFn: async () => {
       const body: any = {
-        payment_method: paymentMethod,
-        items: cart.map((c) => ({ product_id: c.productId, quantity: c.quantity, unit_price: c.price })),
+        paymentMethod,
+        items: cart.map((c) => ({ productId: c.productId, batchId: c.batchId, quantity: c.quantity, price: c.price })),
         client_ref: `pos-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       };
-      if (currentShift?.id) body.cash_session_id = currentShift.id;
-      if (selectedCustomer !== "walk-in") body.customer_id = selectedCustomer;
-      if (paymentMethod !== "CREDIT" && amountPaid) body.amount_paid = Number(amountPaid);
-      if (paymentMethod === "CREDIT") body.amount_paid = amountPaid ? Number(amountPaid) : 0;
+      if (currentShift?.id) body.cashSessionId = currentShift.id;
+      if (selectedCustomer !== "walk-in") body.customerId = selectedCustomer;
+      if (paymentMethod !== "CREDIT" && amountPaid) body.amountPaid = Number(amountPaid);
+      if (paymentMethod === "CREDIT") body.amountPaid = amountPaid ? Number(amountPaid) : 0;
 
-      const res = await api.post<{ success: boolean; data: { sale: any; ebm: any } }>("/api/agrovet/pos/sale", body);
-      return res.data;
+      const res = await api.post<any>("/api/agrovet/pos/sale", body);
+      return res?.data || res || {};
     },
-    onSuccess: (data) => {
-      setReceipt(data.sale);
+    onSuccess: async (data: any) => {
+      const saleObj = data?.sale || data || {};
+      setReceipt(saleObj);
       setIsReceiptOpen(true);
+
+      // Real stock only changes once the sale lands on the server, so refresh
+      // the sold products' live stock/batches instead of trusting local math.
+      const soldProductIds = [...new Set(cart.map((c) => c.productId))];
       setCart([]);
       setAmountPaid("");
       setSelectedCustomer("walk-in");
-      success("Sale Completed", `Invoice ${data.sale.invoice_number} recorded.`);
+      success("Sale Completed", `Invoice ${saleObj.invoice_number || 'recorded'}.`);
       queryClient.invalidateQueries({ queryKey: ["agrovet-shift-current"] });
       queryClient.invalidateQueries({ queryKey: ["agrovet-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      await Promise.all(
+        soldProductIds.map((id) =>
+          queryClient.invalidateQueries({ queryKey: ["agrovet-pos-product", id] })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["agrovet-pos-lookup"] });
     },
     onError: (err: any) => {
       error("Sale Failed", err.message || "Failed to process sale.");
@@ -200,18 +247,18 @@ export default function AgrovetPOSPage() {
     <div className="p-6 max-w-[1600px] mx-auto space-y-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ShoppingCart className="h-6 w-6 text-[#0aa9ad]" />
             Point of Sale
           </h1>
-          <p className="text-sm text-slate-500">Search or scan products, build the sale, and check out.</p>
+          <p className="text-sm text-muted-foreground">Search or scan products, build the sale, and check out.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <ScanLine className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <ScanLine className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Scan Barcode (Enter)"
-              className="pl-9 w-56 rounded-xl border-slate-200"
+              className="pl-9 w-56 rounded-xl border-border"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               onKeyDown={(e) => {
@@ -246,12 +293,12 @@ export default function AgrovetPOSPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
         <div className="space-y-4">
-          <Card className="border-slate-200 shadow-sm rounded-2xl h-[calc(100vh-260px)] flex flex-col">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 rounded-t-2xl pb-4 flex-row items-center justify-between gap-3">
+          <Card className="border-border shadow-sm rounded-2xl h-[calc(100vh-260px)] flex flex-col">
+            <CardHeader className="border-b border-border bg-background/50 rounded-t-2xl pb-4 flex-row items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold">Product Search</CardTitle>
               <div className="flex items-center gap-2">
                 <Select value={department || "ALL"} onValueChange={(v) => setDepartment(v === "ALL" ? "" : v)}>
-                  <SelectTrigger className="h-9 w-36 rounded-lg border-slate-200 bg-white text-sm">
+                  <SelectTrigger className="h-9 w-36 rounded-lg border-border bg-card text-sm">
                     <SelectValue placeholder="Department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -264,48 +311,64 @@ export default function AgrovetPOSPage() {
                   placeholder="Search by name or barcode..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="h-9 w-64 rounded-lg border-slate-200 bg-white text-sm"
+                  className="h-9 w-64 rounded-lg border-border bg-card text-sm"
                 />
               </div>
             </CardHeader>
             <CardContent className="p-4 overflow-y-auto flex-1 custom-scrollbar">
               {isSearching ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
-                </div>
-              ) : query.trim().length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 p-8">
-                  <ScanLine className="w-12 h-12 mb-4 opacity-50" />
-                  <p className="text-lg font-semibold text-slate-600">Scan or search for a product</p>
-                  <p className="text-sm">Results with live stock will appear here.</p>
-                </div>
-              ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {results.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`border border-slate-200 rounded-xl p-4 hover:border-[#0aa9ad] hover:shadow-md cursor-pointer transition flex flex-col bg-white relative overflow-hidden ${item.stock <= 0 ? "opacity-50 pointer-events-none" : ""}`}
-                      onClick={() => addToCart(item)}
-                    >
-                      <Badge variant="outline" className="w-fit mb-2 text-[10px] bg-slate-50 text-slate-500">
-                        {item.department}
-                      </Badge>
-                      <h3 className="font-bold text-slate-900 leading-tight mb-1">{item.name}</h3>
-                      <p className="text-xs text-slate-500 mb-3">{item.barcode || "No barcode"}</p>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="border border-border rounded-xl p-4 flex flex-col bg-card">
+                      <Skeleton className="h-4 w-16 mb-2 rounded-full" />
+                      <Skeleton className="h-4 w-full mb-1" />
+                      <Skeleton className="h-3 w-2/3 mb-3" />
                       <div className="mt-auto flex justify-between items-end">
-                        <span className="text-lg font-black text-[#0aa9ad]">
-                          {item.selling_price.toLocaleString()} <span className="text-xs text-slate-500 font-normal">RWF</span>
-                        </span>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-md ${item.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                          {item.stock} {item.uom}
-                        </span>
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-12 rounded-md" />
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {results.map((item) => {
+                    // Live-decreasing stock: subtract whatever's already in
+                    // the cart (across all of this product's batches) from
+                    // the server's stock, so it goes back up when removed.
+                    const inCart = cart.filter((c) => c.productId === item.id).reduce((sum, c) => sum + c.quantity, 0);
+                    const remaining = item.stock - inCart;
+                    return (
+                    <div
+                      key={item.id}
+                      className={`border border-border rounded-xl p-4 hover:border-[#0aa9ad] hover:shadow-md cursor-pointer transition flex flex-col bg-card relative overflow-hidden ${remaining <= 0 ? "opacity-50 pointer-events-none" : ""}`}
+                      onClick={() => addToCart(item)}
+                    >
+                      <Badge variant="outline" className="w-fit mb-2 text-[10px] bg-muted text-muted-foreground">
+                        {item.department}
+                      </Badge>
+                      <h3 className="font-bold text-foreground leading-tight mb-1">{item.name}</h3>
+                      <p className="text-xs text-muted-foreground mb-3">{item.barcode || "No barcode"}</p>
+                      <div className="mt-auto flex justify-between items-end">
+                        <span className="text-lg font-black text-[#0aa9ad]">
+                          {item.selling_price.toLocaleString()} <span className="text-xs text-muted-foreground font-normal">RWF</span>
+                        </span>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-md ${remaining > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                          {remaining} {item.uom}
+                        </span>
+                      </div>
+                    </div>
+                    );
+                  })}
                   {results.length === 0 && (
-                    <div className="col-span-full h-full flex flex-col items-center justify-center text-slate-400 p-8">
+                    <div className="col-span-full h-full flex flex-col items-center justify-center text-muted-foreground p-8">
                       <ShoppingCart className="w-12 h-12 mb-4 opacity-50" />
-                      <p className="text-lg font-semibold text-slate-600">No matching products</p>
+                      <p className="text-lg font-semibold text-muted-foreground">
+                        {query.trim() ? "No matching products" : "No products in stock"}
+                      </p>
+                      <p className="text-sm">
+                        {query.trim() ? "Try a different name or barcode." : "Receive stock in Inventory to start selling."}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -315,17 +378,17 @@ export default function AgrovetPOSPage() {
         </div>
 
         <div className="flex flex-col h-[calc(100vh-260px)]">
-          <Card className="border-slate-200 shadow-sm rounded-2xl flex-1 flex flex-col">
-            <CardHeader className="border-b border-slate-100 bg-slate-50/50 rounded-t-2xl pb-4 flex flex-row items-center justify-between">
+          <Card className="border-border shadow-sm rounded-2xl flex-1 flex flex-col">
+            <CardHeader className="border-b border-border bg-background/50 rounded-t-2xl pb-4 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-semibold">Current Sale</CardTitle>
               <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none">{cart.length} items</Badge>
             </CardHeader>
 
-            <div className="p-4 border-b border-slate-100 space-y-3">
+            <div className="p-4 border-b border-border space-y-3">
               <div className="flex items-center gap-2">
-                <UserIcon className="h-4 w-4 text-slate-500" />
+                <UserIcon className="h-4 w-4 text-muted-foreground" />
                 <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                  <SelectTrigger className="h-9 w-full text-sm rounded-lg border-slate-200">
+                  <SelectTrigger className="h-9 w-full text-sm rounded-lg border-border">
                     <SelectValue placeholder="Select Customer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -340,7 +403,7 @@ export default function AgrovetPOSPage() {
 
             <CardContent className="p-0 overflow-y-auto flex-1 custom-scrollbar">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400 p-6 text-center">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
                   <ShoppingCart className="h-12 w-12 mb-4 text-slate-200" />
                   <p>Cart is empty</p>
                   <p className="text-xs mt-1">Scan items or click products to add</p>
@@ -348,23 +411,23 @@ export default function AgrovetPOSPage() {
               ) : (
                 <div className="divide-y divide-slate-100 p-2">
                   {cart.map((item) => (
-                    <div key={item.productId} className="p-3 hover:bg-slate-50 rounded-lg group">
+                    <div key={item.batchId} className="p-3 hover:bg-muted rounded-lg group">
                       <div className="flex justify-between items-start mb-2">
-                        <p className="font-semibold text-slate-900 text-sm line-clamp-1">{item.name}</p>
-                        <p className="font-bold text-slate-900 text-sm whitespace-nowrap ml-2">
+                        <p className="font-semibold text-foreground text-sm line-clamp-1">{item.name}</p>
+                        <p className="font-bold text-foreground text-sm whitespace-nowrap ml-2">
                           {(item.price * item.quantity).toLocaleString()} RWF
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {item.price.toLocaleString()} RWF / {item.uom}
                         </p>
-                        <div className="flex items-center gap-1 border border-slate-200 rounded-md bg-white">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.productId, -1)}>
+                        <div className="flex items-center gap-1 border border-border rounded-md bg-card">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.batchId, -1)}>
                             <Minus className="h-3 w-3" />
                           </Button>
                           <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.productId, 1)}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.batchId, 1)}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
@@ -372,7 +435,7 @@ export default function AgrovetPOSPage() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeFromCart(item.productId)}
+                          onClick={() => removeFromCart(item.batchId)}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -383,15 +446,15 @@ export default function AgrovetPOSPage() {
               )}
             </CardContent>
 
-            <div className="border-t border-slate-200 bg-slate-50/80 rounded-b-2xl p-4 space-y-4">
-              <div className="flex justify-between items-center text-xl font-black text-slate-900">
+            <div className="border-t border-border bg-background/80 rounded-b-2xl p-4 space-y-4">
+              <div className="flex justify-between items-center text-xl font-black text-foreground">
                 <span>Total</span>
                 <span className="text-[#0aa9ad]">{formatCurrency(subtotal)}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <Select value={paymentMethod} onValueChange={(v: any) => setPaymentMethod(v)}>
-                  <SelectTrigger className="h-10 border-slate-200 font-semibold bg-white">
+                  <SelectTrigger className="h-10 border-border font-semibold bg-card">
                     <SelectValue placeholder="Payment" />
                   </SelectTrigger>
                   <SelectContent>
@@ -405,7 +468,7 @@ export default function AgrovetPOSPage() {
                 <Input
                   type="number"
                   placeholder={paymentMethod === "CREDIT" ? "Amount paid now (optional)" : "Amount paid"}
-                  className="h-10 border-slate-200 bg-white"
+                  className="h-10 border-border bg-card"
                   value={amountPaid}
                   onChange={(e) => setAmountPaid(e.target.value)}
                 />
@@ -425,9 +488,9 @@ export default function AgrovetPOSPage() {
 
       <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
         <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader className="text-center pb-2 border-b border-dashed border-slate-300">
+          <DialogHeader className="text-center pb-2 border-b border-dashed border-border">
             <DialogTitle className="text-xl font-black">SALES RECEIPT</DialogTitle>
-            <p className="text-xs text-slate-500">{receipt?.branch?.name || "FONI AGROVET SOLUTIONS LTD"}</p>
+            <p className="text-xs text-muted-foreground">{receipt?.branch?.name || "FONI AGROVET SOLUTIONS LTD"}</p>
           </DialogHeader>
           {receipt && (
             <div className="py-4 space-y-4 font-mono text-xs text-slate-700">
@@ -453,7 +516,7 @@ export default function AgrovetPOSPage() {
                 <span>Customer:</span>
                 <span>{receipt.customer?.name || "Walk-in"}</span>
               </div>
-              <div className="border-t border-b border-dashed border-slate-300 py-2 space-y-2">
+              <div className="border-t border-b border-dashed border-border py-2 space-y-2">
                 <div className="font-bold flex justify-between">
                   <span>Item</span>
                   <span>Amount</span>
@@ -491,7 +554,7 @@ export default function AgrovetPOSPage() {
                   </div>
                 )}
               </div>
-              <div className="pt-2 border-t border-dashed border-slate-300 text-center text-[10px] text-slate-500">
+              <div className="pt-2 border-t border-dashed border-border text-center text-[10px] text-muted-foreground">
                 <p>Payment: {receipt.payment_method}</p>
                 {receipt.ebm_status && <p>EBM Status: {receipt.ebm_status}</p>}
                 <p className="mt-2 font-bold">THANK YOU FOR YOUR BUSINESS</p>

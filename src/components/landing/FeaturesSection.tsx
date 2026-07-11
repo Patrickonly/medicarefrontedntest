@@ -84,7 +84,7 @@ export default function FeaturesSection() {
   return (
     <section
       id="features"
-      className="relative overflow-hidden bg-white py-24"
+      className="relative overflow-hidden bg-card py-24"
     >
       {/* Background Shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -122,7 +122,7 @@ export default function FeaturesSection() {
                 duration: 0.35,
                 delay: index * 0.05,
               }}
-              className="group rounded-[2rem] border border-[#dcebf0] bg-white p-7 shadow-sm transition-all hover:-translate-y-1 hover:border-[#8ee4e7] hover:shadow-xl"
+              className="group rounded-[2rem] border border-border bg-card p-7 shadow-sm transition-all hover:-translate-y-1 hover:border-[#8ee4e7] hover:shadow-xl"
             >
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eefdfd] text-[#07969a]">
                 <item.icon size={24} />
@@ -143,7 +143,7 @@ export default function FeaturesSection() {
         <div className="mt-24 overflow-hidden rounded-[3rem] bg-[#0aa9ad] p-10 text-white lg:p-16">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
-              <span className="inline-flex rounded-full bg-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
+              <span className="inline-flex rounded-full bg-card/15 px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
                 Operational Excellence
               </span>
 
@@ -162,9 +162,9 @@ export default function FeaturesSection() {
               {benefits.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-3xl bg-white/10 p-5 backdrop-blur"
+                  className="rounded-3xl bg-card/10 p-5 backdrop-blur"
                 >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#0aa9ad]">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-card text-[#0aa9ad]">
                     <item.icon size={20} />
                   </div>
 
@@ -203,7 +203,7 @@ export default function FeaturesSection() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-[2rem] border border-[#dcebf0] bg-white p-8 text-center shadow-sm"
+              className="rounded-[2rem] border border-border bg-card p-8 text-center shadow-sm"
             >
               <p className="font-heading text-4xl font-extrabold text-[#07969a]">
                 {stat.value}

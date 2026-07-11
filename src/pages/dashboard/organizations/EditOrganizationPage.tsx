@@ -5,8 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Building2, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Save, Building2, Loader2, Upload, ImageOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +15,7 @@ export default function EditOrganizationPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id } = useParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -22,7 +23,10 @@ export default function EditOrganizationPage() {
     phone: "",
     type: "healthcare",
     status: "active",
+    logo_url: "",
   });
+  const [logoPreview, setLogoPreview] = useState<string>("");
+  const [isReadingLogo, setIsReadingLogo] = useState(false);
 
   // The admin org API is list-based, so we load the list and find this org.
   const { data: organizations = [], isLoading } = useQuery({
@@ -43,9 +47,36 @@ export default function EditOrganizationPage() {
         phone: org.phone || "",
         type: org.type || "healthcare",
         status: org.status || "active",
+        logo_url: org.logo_url || "",
       });
+      setLogoPreview(org.logo_url || "");
     }
   }, [org]);
+
+  const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB — kept small since it's stored inline as base64 in the DB.
+
+  const handleLogoSelect = (file: File | null) => {
+    if (!file) return;
+
+    if (file.size > MAX_LOGO_BYTES) {
+      error("Image too large", "Please choose an image under 2MB.");
+      return;
+    }
+
+    setIsReadingLogo(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setLogoPreview(dataUrl);
+      setFormData((prev) => ({ ...prev, logo_url: dataUrl }));
+      setIsReadingLogo(false);
+    };
+    reader.onerror = () => {
+      error("Read failed", "Could not read the selected image.");
+      setIsReadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -81,11 +112,11 @@ export default function EditOrganizationPage() {
 
   if (!org) {
     return (
-      <div className="mx-auto max-w-4xl p-6">
-        <Button variant="ghost" onClick={() => navigate("/dashboard/organizations")} className="mb-4 -ml-4 text-slate-500 hover:text-slate-900">
+      <div className="mx-auto max-w-[1600px] p-6">
+        <Button variant="ghost" onClick={() => navigate("/dashboard/organizations")} className="mb-4 -ml-4 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Organizations
         </Button>
-        <Card className="rounded-2xl border-slate-200 p-10 text-center text-slate-500 shadow-sm">
+        <Card className="rounded-2xl border-border p-10 text-center text-muted-foreground shadow-sm">
           Organization not found.
         </Card>
       </div>
@@ -93,21 +124,21 @@ export default function EditOrganizationPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-[1600px] p-6">
       <div className="mb-8">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard/organizations")}
-          className="mb-4 -ml-4 text-slate-500 hover:text-slate-900"
+          className="mb-4 -ml-4 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Organizations
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Organization</h1>
-        <p className="text-sm text-slate-500">Update the details for {org.name}.</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit Organization</h1>
+        <p className="text-sm text-muted-foreground">Update the details for {org.name}.</p>
       </div>
 
-      <Card className="rounded-2xl border-slate-200 shadow-sm">
-        <CardHeader className="rounded-t-2xl border-b border-slate-100 bg-slate-50/50 pb-4">
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader className="rounded-t-2xl border-b border-border bg-background/50 pb-4">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
             <Building2 className="h-5 w-5 text-[#0aa9ad]" /> Organization Details
           </CardTitle>
@@ -116,6 +147,44 @@ export default function EditOrganizationPage() {
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
+              <Label className="font-medium text-slate-700">Organization Logo</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/50">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt={`${formData.name || "Organization"} logo`} className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageOff className="h-7 w-7 text-slate-300" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    title="Upload organization logo"
+                    aria-label="Upload organization logo"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="hidden"
+                    onChange={(e) => handleLogoSelect(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    disabled={isReadingLogo}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isReadingLogo ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reading...</>
+                    ) : (
+                      <><Upload className="mr-2 h-4 w-4" /> {logoPreview ? "Change Logo" : "Upload Logo"}</>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP, under 2MB. Saved when you click "Save Changes".</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
               <Label htmlFor="name" className="font-medium text-slate-700">
                 Organization Name <span className="text-red-500">*</span>
               </Label>
@@ -123,7 +192,7 @@ export default function EditOrganizationPage() {
                 id="name"
                 required
                 placeholder="e.g. Kigali Central Hospital"
-                className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -133,7 +202,7 @@ export default function EditOrganizationPage() {
               <div className="space-y-3">
                 <Label htmlFor="type" className="font-medium text-slate-700">Type</Label>
                 <Select value={formData.type} onValueChange={(val) => setFormData({ ...formData, type: val })}>
-                  <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad]">
+                  <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
                     <SelectValue placeholder="Select a type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -148,7 +217,7 @@ export default function EditOrganizationPage() {
               <div className="space-y-3">
                 <Label htmlFor="status" className="font-medium text-slate-700">Status</Label>
                 <Select value={formData.status} onValueChange={(val) => setFormData({ ...formData, status: val })}>
-                  <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad]">
+                  <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
                     <SelectValue placeholder="Select a status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -164,7 +233,7 @@ export default function EditOrganizationPage() {
                   id="email"
                   type="email"
                   placeholder="contact@organization.com"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -175,14 +244,14 @@ export default function EditOrganizationPage() {
                 <Input
                   id="phone"
                   placeholder="+250 788 123 456"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-slate-100 pt-6">
+            <div className="flex justify-end gap-3 border-t border-border pt-6">
               <Button type="button" variant="outline" className="rounded-xl" onClick={() => navigate("/dashboard/organizations")}>
                 Cancel
               </Button>

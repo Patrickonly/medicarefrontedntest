@@ -80,7 +80,7 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
   return (
     <div className="w-full">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between p-4 border-b border-slate-100 animate-in fade-in duration-500">
+        <div key={i} className="flex items-center justify-between p-4 border-b border-border animate-in fade-in duration-500">
           <div className="flex items-center gap-4">
             <Skeleton className="h-4 w-4 rounded" />
             <Skeleton className="h-4 w-[150px] sm:w-[250px]" />

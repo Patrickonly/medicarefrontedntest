@@ -55,11 +55,11 @@ export function ConfirmModal({
       />
       
       {/* Modal Content */}
-      <div className="relative z-10 w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white p-6 text-left shadow-2xl transition-all m-4">
+      <div className="relative z-10 w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-card p-6 text-left shadow-2xl transition-all m-4">
         <button
           onClick={onClose}
           disabled={isLoading}
-          className="absolute right-4 top-4 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
+          className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground transition-colors disabled:opacity-50"
         >
           <X size={20} />
         </button>
@@ -70,8 +70,8 @@ export function ConfirmModal({
           </div>
           
           <div className="mt-2 sm:mt-0">
-            <h3 className="text-lg font-black text-slate-900">{title}</h3>
-            <div className="mt-2 text-sm text-slate-500">{description}</div>
+            <h3 className="text-lg font-black text-foreground">{title}</h3>
+            <div className="mt-2 text-sm text-muted-foreground">{description}</div>
           </div>
         </div>
         
@@ -80,7 +80,7 @@ export function ConfirmModal({
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="inline-flex w-full justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none sm:w-auto transition-colors disabled:opacity-50"
+            className="inline-flex w-full justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-muted focus:outline-none sm:w-auto transition-colors disabled:opacity-50"
           >
             {cancelText}
           </button>

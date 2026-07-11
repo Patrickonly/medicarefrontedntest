@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Search, Download, FileText, FileSpreadsheet, FileSpreadsheetIcon, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,8 @@ interface AdvancedDataTableProps<T> {
   onSearchChange?: (term: string) => void;
   searchPlaceholder?: string;
   pageSize?: number;
+  /** Shows a "Show entries" page-size selector when true. Defaults to false for backward compatibility. */
+  allowPageSizeChange?: boolean;
   isLoading?: boolean;
   /**
    * Enables the checkbox column + bulk-actions toolbar. `getRowId` must
@@ -61,13 +64,15 @@ export function AdvancedDataTable<T extends Record<string, any>>({
   searchTerm,
   onSearchChange,
   searchPlaceholder = "Search...",
-  pageSize = 10,
+  pageSize: pageSizeProp = 10,
+  allowPageSizeChange = false,
   isLoading = false,
   getRowId,
   bulkActions,
   onBulkAction,
 }: AdvancedDataTableProps<T>) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(pageSizeProp);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingAction, setConfirmingAction] = useState<BulkActionOption | null>(null);
   const [isRunningBulkAction, setIsRunningBulkAction] = useState(false);
@@ -154,16 +159,16 @@ export function AdvancedDataTable<T extends Record<string, any>>({
   const paginatedData = data.slice((validPage - 1) * pageSize, validPage * pageSize);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 border-b border-slate-100 bg-slate-50/50">
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden flex flex-col w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 border-b border-border bg-background/50">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-          {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+          <h2 className="text-lg font-bold text-foreground">{title}</h2>
+          {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           {onSearchChange && (
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={searchPlaceholder}
                 value={searchTerm || ""}
@@ -171,14 +176,14 @@ export function AdvancedDataTable<T extends Record<string, any>>({
                   onSearchChange(e.target.value);
                   setPage(1); // Reset to first page on search
                 }}
-                className="pl-9 rounded-xl border-slate-200 bg-white focus-visible:ring-[#0aa9ad] w-full shadow-sm"
+                className="pl-9 rounded-xl border-border bg-card focus-visible:ring-[#0aa9ad] w-full shadow-sm"
               />
             </div>
           )}
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm text-slate-700 font-bold transition-colors">
+              <Button variant="outline" className="w-full sm:w-auto rounded-xl border-border bg-card hover:bg-muted shadow-sm text-slate-700 font-bold transition-colors">
                 <Download className="mr-2 h-4 w-4" /> Export Data
               </Button>
             </DropdownMenuTrigger>
@@ -198,13 +203,13 @@ export function AdvancedDataTable<T extends Record<string, any>>({
       </div>
 
       {bulkSelectionEnabled && selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-[#eefbfb] px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[#eefbfb] px-5 py-3">
           <div className="flex items-center gap-2 text-sm font-bold text-[#07969a]">
             <span>{selectedIds.size} selected</span>
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="rounded-full p-1 text-[#07969a]/70 hover:bg-white/60 hover:text-[#07969a]"
+              className="rounded-full p-1 text-[#07969a]/70 hover:bg-card/60 hover:text-[#07969a]"
               aria-label="Clear selection"
             >
               <X className="h-3.5 w-3.5" />
@@ -220,8 +225,8 @@ export function AdvancedDataTable<T extends Record<string, any>>({
                   variant={action.variant === "destructive" ? "outline" : "outline"}
                   className={`rounded-lg font-bold ${
                     action.variant === "destructive"
-                      ? "border-red-200 text-red-600 hover:bg-red-50 bg-white"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
+                      ? "border-red-200 text-red-600 hover:bg-red-50 bg-card"
+                      : "border-border bg-card hover:bg-muted"
                   }`}
                   onClick={() => handleBulkActionClick(action)}
                   disabled={isRunningBulkAction}
@@ -239,6 +244,22 @@ export function AdvancedDataTable<T extends Record<string, any>>({
         </div>
       )}
 
+      {allowPageSizeChange && (
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-background/50">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Show entries:</span>
+          <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setPage(1); }}>
+            <SelectTrigger className="h-8 w-[70px] text-xs rounded-lg border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((size) => (
+                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="flex-1 w-full overflow-x-auto">
         {isLoading ? (
            <TableSkeleton rows={8} />
@@ -249,9 +270,9 @@ export function AdvancedDataTable<T extends Record<string, any>>({
 
       {confirmingAction && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-900">Confirm action</h3>
-            <p className="mt-2 text-sm text-slate-600">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-foreground">Confirm action</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
               {confirmingAction.confirmMessage} ({selectedIds.size} item{selectedIds.size === 1 ? "" : "s"})
             </p>
             <div className="mt-5 flex justify-end gap-2">
@@ -281,7 +302,7 @@ export function AdvancedDataTable<T extends Record<string, any>>({
       )}
 
       {!isLoading && data.length > 0 && (
-        <DataPagination 
+        <DataPagination
           page={validPage}
           totalPages={totalPages}
           total={data.length}

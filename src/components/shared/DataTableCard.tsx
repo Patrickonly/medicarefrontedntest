@@ -38,7 +38,7 @@ export function BulkActionBar({ selectedCount, onClear, onDelete, onApprove }: B
   return (
     <div className="absolute top-0 left-0 right-0 h-[73px] bg-[#0aa9ad] text-white px-6 flex items-center justify-between animate-in fade-in slide-in-from-top-2 z-10">
       <div className="flex items-center gap-4">
-        <span className="font-bold bg-white/20 px-3 py-1 rounded-lg text-sm">{selectedCount} Selected</span>
+        <span className="font-bold bg-card/20 px-3 py-1 rounded-lg text-sm">{selectedCount} Selected</span>
         <button onClick={onClear} className="text-sm font-semibold text-white/80 hover:text-white transition-colors">
           Clear Selection
         </button>
@@ -47,7 +47,7 @@ export function BulkActionBar({ selectedCount, onClear, onDelete, onApprove }: B
         {onApprove && (
           <button 
             onClick={onApprove}
-            className="flex items-center gap-2 bg-white text-[#0aa9ad] px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-card text-[#0aa9ad] px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-colors shadow-sm"
           >
             <CheckCircle2 size={16} />
             Approve
@@ -87,7 +87,7 @@ export function ThCheckbox({ checked, onChange }: { checked: boolean; onChange: 
         type="checkbox" 
         checked={checked} 
         onChange={onChange}
-        className="w-4 h-4 rounded border-slate-300 text-[#0aa9ad] focus:ring-[#0aa9ad] transition-all cursor-pointer"
+        className="w-4 h-4 rounded border-border text-[#0aa9ad] focus:ring-[#0aa9ad] transition-all cursor-pointer"
       />
     </th>
   );
@@ -108,7 +108,7 @@ export function TdCheckbox({ checked, onChange }: { checked: boolean; onChange: 
         type="checkbox" 
         checked={checked} 
         onChange={onChange}
-        className="w-4 h-4 rounded border-slate-300 text-[#0aa9ad] focus:ring-[#0aa9ad] transition-all cursor-pointer"
+        className="w-4 h-4 rounded border-border text-[#0aa9ad] focus:ring-[#0aa9ad] transition-all cursor-pointer"
       />
     </td>
   );

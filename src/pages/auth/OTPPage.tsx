@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -114,8 +115,11 @@ export default function OTPPage() {
             // the real session (useAuth) that verifyOtp() just established.
             nextRoute = "/subscription";
           }
-        } catch (organizationError) {
-          console.error("Failed to load organization subscription status", organizationError);
+        } catch {
+          // The user's organization_id can point to an org that was deleted
+          // or never existed (orphaned reference) - subscription gating is
+          // best-effort here, so fall through to the default /dashboard
+          // route rather than surfacing a scary error during login.
         }
       }
 
@@ -163,7 +167,7 @@ export default function OTPPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5fbfb]">
+    <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-20 h-80 w-80 rounded-[5rem] bg-[#e4fafa]" />
         <div className="absolute right-[-120px] bottom-20 h-96 w-96 rounded-[5rem] bg-[#dff8f8]" />
@@ -173,11 +177,11 @@ export default function OTPPage() {
         {/* Left Column - Branded Side */}
         <section className="relative hidden overflow-hidden bg-[#0aa9ad] text-white lg:block">
           <div className="absolute inset-0 bg-gradient-to-tr from-[#057d82]/90 via-[#079ba0]/80 to-[#0aa9ad]/60" />
-          <div className="absolute -bottom-24 -left-16 h-72 w-72 rounded-[5rem] bg-white/10" />
-          <div className="absolute right-10 top-28 h-52 w-52 rounded-[4rem] bg-white/10" />
+          <div className="absolute -bottom-24 -left-16 h-72 w-72 rounded-[5rem] bg-card/10" />
+          <div className="absolute right-10 top-28 h-52 w-52 rounded-[4rem] bg-card/10" />
 
           <div className="absolute left-10 top-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07969a] shadow-xl shadow-teal-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-[#07969a] shadow-xl shadow-teal-950/10">
               <HeartPulse className="h-7 w-7" />
             </div>
             <div>
@@ -188,7 +192,7 @@ export default function OTPPage() {
 
           <div className="relative z-10 flex min-h-screen flex-col justify-center px-12 py-24 xl:px-16">
             <div className="max-w-xl">
-              <div className="mb-7 inline-flex rounded-full bg-white/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
+              <div className="mb-7 inline-flex rounded-full bg-card/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
                 Account Verification
               </div>
 
@@ -215,7 +219,7 @@ export default function OTPPage() {
               Back to Login
             </Button>
 
-            <div className="rounded-[2.5rem] border border-[#dcebf0] bg-white/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9">
+            <div className="rounded-[2.5rem] border border-border bg-card/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9">
               <div className="mb-7 flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0aa9ad] text-white">
                   <HeartPulse className="h-6 w-6" />
@@ -228,7 +232,7 @@ export default function OTPPage() {
                 </div>
               </div>
 
-              <Card className="mb-8 border-[#dcebf0] shadow-sm">
+              <Card className="mb-8 border-border shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-[#09111f] font-extrabold text-2xl">Verification Code</CardTitle>
                   <CardDescription className="text-[#5f6d84] font-medium text-base">
@@ -240,21 +244,26 @@ export default function OTPPage() {
                     <Label htmlFor="otp" className="text-sm font-black text-[#09111f]">
                       Enter Code
                     </Label>
-                    <Input
-                      id="otp"
-                      placeholder="000000"
-                      maxLength={6}
-                      className="h-14 text-center text-3xl font-extrabold tracking-[0.5em] border-[#dcebf0] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 rounded-xl"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                    />
+                    <div className="flex justify-center mt-2">
+                      <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                        <InputOTPGroup className="gap-2">
+                          {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <InputOTPSlot 
+                              key={index} 
+                              index={index} 
+                              className="w-14 h-16 text-3xl font-extrabold rounded-xl border-2 border-border shadow-sm focus-visible:ring-[#0aa9ad] focus-visible:ring-offset-2 transition-all" 
+                            />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
                   </div>
 
                   {secondsUntilExpiry !== null && (
                     <div
                       className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
                         secondsUntilExpiry > 0
-                          ? "border-[#dcebf0] bg-[#f6fbfb] text-[#5f6d84]"
+                          ? "border-border bg-muted text-[#5f6d84]"
                           : "border-red-200 bg-red-50 text-red-600"
                       }`}
                     >

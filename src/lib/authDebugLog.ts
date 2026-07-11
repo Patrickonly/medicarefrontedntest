@@ -39,7 +39,6 @@ export function logAuthDebug(level: AuthDebugLevel, label: string, detail?: unkn
   for (const fn of listeners) fn([...buffer]);
 
   // Mirror to console for dev parity. Single namespace makes filtering easy.
-  // eslint-disable-next-line no-console
   console.debug(`[auth-debug:${level}] ${label}`, detail ?? "");
 }
 

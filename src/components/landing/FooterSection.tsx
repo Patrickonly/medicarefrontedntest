@@ -53,30 +53,30 @@ export default function FooterSection() {
                 <p className="font-heading text-[20px] font-extrabold tracking-tight">
                   MEDICARE ONE
                 </p>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                   Healthcare Operations Platform
                 </p>
               </div>
             </div>
 
-            <p className="mt-5 max-w-md text-sm font-medium leading-relaxed text-slate-400">
+            <p className="mt-5 max-w-md text-sm font-medium leading-relaxed text-muted-foreground">
               Enterprise healthcare management platform connecting patient
               administration, clinical services, diagnostics, pharmacy
               operations, billing, insurance workflows and executive reporting.
             </p>
 
             <div className="mt-8 space-y-4">
-              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-card/[0.03] px-4 py-3 text-sm text-slate-300">
                 <MapPin className="h-4 w-4 text-[#10bfc2]" />
                 <span>Kigali, Rwanda</span>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-card/[0.03] px-4 py-3 text-sm text-slate-300">
                 <Mail className="h-4 w-4 text-[#10bfc2]" />
                 <span>info@medicareone.rw</span>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-card/[0.03] px-4 py-3 text-sm text-slate-300">
                 <Phone className="h-4 w-4 text-[#10bfc2]" />
                 <span>+250 XXX XXX XXX</span>
               </div>
@@ -96,7 +96,7 @@ export default function FooterSection() {
                       <li key={link}>
                         <a
                           href="#"
-                          className="text-sm font-medium text-slate-400 transition hover:text-[#7fe8ea]"
+                          className="text-sm font-medium text-muted-foreground transition hover:text-[#7fe8ea]"
                         >
                           {link}
                         </a>
@@ -109,7 +109,7 @@ export default function FooterSection() {
           </div>
         </div>
 
-        <div className="mt-12 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="mt-12 rounded-3xl border border-white/10 bg-card/[0.03] p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-xl border border-[#10bfc2]/20 bg-[#10bfc2]/10 p-2">
@@ -120,7 +120,7 @@ export default function FooterSection() {
                 <p className="text-sm font-bold text-white">
                   Security & Governance
                 </p>
-                <p className="text-xs font-medium text-slate-400">
+                <p className="text-xs font-medium text-muted-foreground">
                   Audit-ready workflows, role-based access control and healthcare
                   data protection architecture.
                 </p>
@@ -132,7 +132,7 @@ export default function FooterSection() {
                 Multi-Facility Ready
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-300">
+              <div className="rounded-xl border border-white/10 bg-card/[0.04] px-3 py-2 text-xs font-bold text-slate-300">
                 Rwanda & Africa Ready
               </div>
             </div>
@@ -140,7 +140,7 @@ export default function FooterSection() {
         </div>
 
         <div className="mt-12 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="rounded-3xl border border-white/10 bg-card/[0.03] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#7fe8ea]">
               Availability
             </p>
@@ -149,7 +149,7 @@ export default function FooterSection() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="rounded-3xl border border-white/10 bg-card/[0.03] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#7fe8ea]">
               Deployment
             </p>
@@ -158,7 +158,7 @@ export default function FooterSection() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="rounded-3xl border border-white/10 bg-card/[0.03] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#7fe8ea]">
               Coverage
             </p>
@@ -169,28 +169,28 @@ export default function FooterSection() {
         </div>
 
         <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-medium text-slate-500">
+          <p className="text-xs font-medium text-muted-foreground">
             © 2026 MediCare ONE. All rights reserved.
           </p>
 
           <div className="flex flex-wrap items-center gap-5">
-            <Link to="/about" className="text-xs font-medium text-slate-500 transition hover:text-[#7fe8ea]">
+            <Link to="/about" className="text-xs font-medium text-muted-foreground transition hover:text-[#7fe8ea]">
               About
             </Link>
 
-            <Link to="/contact" className="text-xs font-medium text-slate-500 transition hover:text-[#7fe8ea]">
+            <Link to="/contact" className="text-xs font-medium text-muted-foreground transition hover:text-[#7fe8ea]">
               Contact
             </Link>
 
-            <Link to="/privacy" className="text-xs font-medium text-slate-500 transition hover:text-[#7fe8ea]">
+            <Link to="/privacy" className="text-xs font-medium text-muted-foreground transition hover:text-[#7fe8ea]">
               Privacy
             </Link>
 
-            <Link to="/terms" className="text-xs font-medium text-slate-500 transition hover:text-[#7fe8ea]">
+            <Link to="/terms" className="text-xs font-medium text-muted-foreground transition hover:text-[#7fe8ea]">
               Terms
             </Link>
 
-            <Link to="/security" className="text-xs font-medium text-slate-500 transition hover:text-[#7fe8ea]">
+            <Link to="/security" className="text-xs font-medium text-muted-foreground transition hover:text-[#7fe8ea]">
               Security
             </Link>
           </div>

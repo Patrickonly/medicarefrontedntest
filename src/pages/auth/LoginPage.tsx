@@ -13,7 +13,8 @@ import {
     Lock,
     Mail,
     ShieldCheck,
-    Users
+    Users,
+    User
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -41,7 +42,7 @@ export default function LoginPage() {
     event.preventDefault();
 
     if (!email || !password) {
-      error("Error", "Enter your email address and password.");
+      error("Error", "Enter your email, phone, or username and password.");
       return;
     }
 
@@ -70,7 +71,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5fbfb]">
+    <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-28 top-16 h-80 w-80 rounded-[5rem] bg-[#e4fafa]" />
         <div className="absolute right-[-120px] bottom-20 h-96 w-96 rounded-[5rem] bg-[#dff8f8]" />
@@ -88,7 +89,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-tr from-[#057d82]/95 via-[#079ba0]/90 to-[#0aa9ad]/80" />
           
           <div className="absolute left-10 top-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07969a] shadow-xl shadow-teal-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-[#07969a] shadow-xl shadow-teal-950/10">
               <HeartPulse className="h-7 w-7" />
             </div>
             <div>
@@ -104,20 +105,20 @@ export default function LoginPage() {
           <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-12 xl:px-16 text-center">
             
             <div className="relative mb-12 flex items-center justify-center">
-              <div className="absolute h-64 w-64 animate-pulse rounded-full bg-white/5 blur-3xl" />
-              <div className="absolute h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute h-64 w-64 animate-pulse rounded-full bg-card/5 blur-3xl" />
+              <div className="absolute h-48 w-48 rounded-full bg-card/10 blur-2xl" />
               
               <div className="relative grid grid-cols-2 gap-6 p-8">
-                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform">
+                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-card/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform">
                   <ShieldCheck className="h-10 w-10 text-white" />
                 </div>
-                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform mt-12">
+                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-card/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform mt-12">
                   <Users className="h-10 w-10 text-white" />
                 </div>
-                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform -mt-12">
+                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-card/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform -mt-12">
                   <BarChart3 className="h-10 w-10 text-white" />
                 </div>
-                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform">
+                <div className="flex h-24 w-24 items-center justify-center rounded-[2rem] bg-card/10 shadow-2xl backdrop-blur-md border border-white/20 transform hover:scale-105 transition-transform">
                   <Building2 className="h-10 w-10 text-white" />
                 </div>
               </div>
@@ -144,7 +145,7 @@ export default function LoginPage() {
               Back to home
             </Link>
 
-            <div className="rounded-[2.5rem] border border-[#dcebf0] bg-white/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 lg:p-10">
+            <div className="rounded-[2.5rem] border border-border bg-card/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 lg:p-10">
               <div className="text-center">
                 <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-[#0aa9ad] text-white shadow-xl shadow-teal-500/20">
                   <HeartPulse className="h-8 w-8" />
@@ -161,14 +162,14 @@ export default function LoginPage() {
               <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
                 <div>
                   <label className="mb-2 block text-sm font-black text-[#09111f]">
-                    Email address
+                    Email, Phone or Username
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8ba0b8]" />
+                    <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8ba0b8]" />
                     <input
-                      type="email"
-                      className="h-14 w-full rounded-[1.2rem] border border-[#dcebf0] bg-white px-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
-                      placeholder="name@facility.rw"
+                      type="text"
+                      className="h-14 w-full rounded-[1.2rem] border border-border bg-card px-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                      placeholder="Email, phone or username"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                     />
@@ -188,7 +189,7 @@ export default function LoginPage() {
                     <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8ba0b8]" />
                     <input
                       type={showPass ? "text" : "password"}
-                      className="h-14 w-full rounded-[1.2rem] border border-[#dcebf0] bg-white px-12 pr-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                      className="h-14 w-full rounded-[1.2rem] border border-border bg-card px-12 pr-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                       placeholder="Enter your password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}

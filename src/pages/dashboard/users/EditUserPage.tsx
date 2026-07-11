@@ -24,6 +24,7 @@ export default function EditUserPage() {
     email: "",
     roleId: "",
     phone: "",
+    status: "active",
   });
 
   const [editedPermissions, setEditedPermissions] = useState<Record<string, boolean>>({});
@@ -62,12 +63,14 @@ export default function EditUserPage() {
 
   useEffect(() => {
     if (user) {
+      const rawStatus = String(user.status ?? "").toLowerCase();
       setFormData({
         firstName: user.firstName || user.first_name || "",
         lastName: user.lastName || user.last_name || "",
         email: user.email || "",
         roleId: String(user.role_id ?? user.roleId ?? user.role?.id ?? ""),
         phone: user.phone || "",
+        status: rawStatus === "inactive" || rawStatus === "suspended" ? "inactive" : "active",
       });
     }
   }, [user]);
@@ -85,7 +88,7 @@ export default function EditUserPage() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await api.put(`/api/users/${id}`, data);
+      const res = await api.put<{ success: boolean; data: any }>(`/api/users/${id}`, data);
       return res.data;
     },
     onSuccess: () => {
@@ -120,6 +123,7 @@ export default function EditUserPage() {
       last_name: formData.lastName,
       phone: formData.phone,
       roleId: formData.roleId,
+      status: formData.status,
     });
   };
 
@@ -140,21 +144,21 @@ export default function EditUserPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
       <div className="mb-2">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard/users")}
-          className="mb-4 text-slate-500 hover:text-slate-900 -ml-4"
+          className="mb-4 text-muted-foreground hover:text-foreground -ml-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Users
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Staff Member</h1>
-        <p className="text-sm text-slate-500">Update user details and access overrides</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit Staff Member</h1>
+        <p className="text-sm text-muted-foreground">Update user details and access overrides</p>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50 rounded-t-2xl">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 bg-background/50 rounded-t-2xl">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <UserCog className="h-5 w-5 text-[#0aa9ad]" />
             User Details
@@ -164,7 +168,7 @@ export default function EditUserPage() {
         <CardContent className="p-6">
           {isLoading ? (
             <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -174,7 +178,7 @@ export default function EditUserPage() {
                   <Input
                     id="firstName"
                     required
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   />
@@ -184,7 +188,7 @@ export default function EditUserPage() {
                   <Input
                     id="lastName"
                     required
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   />
@@ -195,17 +199,17 @@ export default function EditUserPage() {
                     id="email"
                     type="email"
                     disabled
-                    className="rounded-xl border-slate-200 bg-slate-50 text-slate-500"
+                    className="rounded-xl border-border bg-muted text-muted-foreground"
                     value={formData.email}
                   />
-                  <p className="text-xs text-slate-400">Email cannot be changed from this form.</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed from this form.</p>
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor="phone" className="text-slate-700 font-medium">Phone Number</Label>
                   <Input
                     id="phone"
                     placeholder="+250 788 000 000"
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
@@ -217,7 +221,7 @@ export default function EditUserPage() {
                     value={formData.roleId}
                     onValueChange={(val) => setFormData({ ...formData, roleId: val })}
                   >
-                    <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad]">
+                    <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
                       <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -227,9 +231,24 @@ export default function EditUserPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-3">
+                  <Label htmlFor="status" className="text-slate-700 font-medium">Account Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(val) => setFormData({ ...formData, status: val })}
+                  >
+                    <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+              <div className="pt-6 border-t border-border flex justify-end gap-3">
                 <Button
                   type="submit"
                   className="rounded-xl bg-[#0aa9ad] hover:bg-[#07969a] text-white shadow-md shadow-teal-900/10"
@@ -243,8 +262,8 @@ export default function EditUserPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50 rounded-t-2xl flex flex-row items-center justify-between">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 bg-background/50 rounded-t-2xl flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-amber-500" />
@@ -263,15 +282,21 @@ export default function EditUserPage() {
         <CardContent className="p-6">
           {permsLoading || userPermsLoading ? (
             <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {permissionsList.map((perm: any) => {
-                const pId = typeof perm === 'string' ? perm : perm.id || perm.name;
-                const pName = typeof perm === 'string' ? perm : perm.name;
+                // Permissions come back as { id, action, subject, description } -
+                // there is no `name` field, so derive both the key and the
+                // display label from action/subject (falling back to name
+                // in case a plain string or differently-shaped record shows up).
+                const pId = typeof perm === 'string' ? perm : perm.id ?? perm.name ?? `${perm.action}_${perm.subject}`;
+                const pName = typeof perm === 'string'
+                  ? perm
+                  : perm.name ?? [perm.action, perm.subject].filter(Boolean).join(' ') ?? 'Permission';
                 return (
-                  <div key={pId} className="flex items-start space-x-3 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div key={pId} className="flex items-start space-x-3 p-3 border border-border rounded-xl hover:bg-muted transition-colors">
                     <Checkbox 
                       id={`user-perm-${pId}`} 
                       checked={!!editedPermissions[pId]}
@@ -281,12 +306,12 @@ export default function EditUserPage() {
                     <div className="grid gap-1.5 leading-none">
                       <label
                         htmlFor={`user-perm-${pId}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-900 cursor-pointer capitalize"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground cursor-pointer capitalize"
                       >
                         {pName.replace(/_/g, ' ')}
                       </label>
                       {perm.description && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {perm.description}
                         </p>
                       )}
@@ -295,7 +320,7 @@ export default function EditUserPage() {
                 )
               })}
               {permissionsList.length === 0 && (
-                <p className="text-slate-500">No permissions available in the system.</p>
+                <p className="text-muted-foreground">No permissions available in the system.</p>
               )}
             </div>
           )}

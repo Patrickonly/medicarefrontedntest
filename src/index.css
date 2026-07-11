@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -86,35 +86,7 @@
     --sidebar-ring: 0 0% 100%;
   }
 
-  .dark {
-    --background: 210 45% 8%;
-    --foreground: 184 45% 96%;
-    --card: 210 38% 12%;
-    --card-foreground: 184 45% 96%;
-    --popover: 210 38% 12%;
-    --popover-foreground: 184 45% 96%;
-    --primary: 183 78% 44%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 30% 18%;
-    --secondary-foreground: 184 45% 94%;
-    --muted: 210 30% 18%;
-    --muted-foreground: 184 18% 68%;
-    --accent: 176 72% 42%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 210 28% 22%;
-    --input: 210 28% 22%;
-    --ring: 183 78% 44%;
-    --sidebar-background: 183 87% 26%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 183 87% 32%;
-    --sidebar-accent: 183 84% 22%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 183 78% 22%;
-    --sidebar-ring: 0 0% 100%;
-  }
+
 
   * {
     @apply border-border;
@@ -282,5 +254,25 @@
 
   .rounded-medical {
     border-radius: 2.4rem;
+  }
+
+  .sidebar-scroll-area {
+    -ms-overflow-style: none;
+  }
+
+  .sidebar-scroll-area::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .sidebar-scroll-area:hover::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .sidebar-scroll-area:hover::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.45);
   }
 }

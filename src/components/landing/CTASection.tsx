@@ -28,7 +28,7 @@ const items = [
 
 export default function CTASection() {
   return (
-    <section className="relative overflow-hidden bg-[#f5fbfb] py-20 sm:py-24">
+    <section className="relative overflow-hidden bg-background py-20 sm:py-24">
       <div className="medicare-container px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
@@ -37,11 +37,11 @@ export default function CTASection() {
           transition={{ duration: 0.4 }}
           className="relative overflow-hidden rounded-[2.8rem] bg-[#0aa9ad] px-6 py-12 text-white shadow-2xl shadow-teal-900/10 sm:px-10 lg:px-14"
         >
-          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-[5rem] bg-white/10" />
-          <div className="absolute -bottom-24 right-10 h-80 w-80 rounded-[5rem] bg-white/10" />
+          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-[5rem] bg-card/10" />
+          <div className="absolute -bottom-24 right-10 h-80 w-80 rounded-[5rem] bg-card/10" />
 
           <div className="relative z-10 mx-auto max-w-5xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full bg-card/15 px-4 py-1.5 backdrop-blur">
               <Building2 size={14} />
               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">
                 Implementation & Deployment
@@ -62,9 +62,9 @@ export default function CTASection() {
               {items.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[2rem] border border-white/20 bg-white/12 p-5 backdrop-blur"
+                  className="rounded-[2rem] border border-white/20 bg-card/12 p-5 backdrop-blur"
                 >
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#07969a]">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-card text-[#07969a]">
                     <item.icon className="h-6 w-6" />
                   </div>
 
@@ -82,7 +82,7 @@ export default function CTASection() {
               <Link to="/contact">
                 <Button
                   size="lg"
-                  className="h-12 rounded-full bg-white px-8 text-sm font-black text-[#078b90] shadow-xl shadow-teal-950/10 hover:bg-white/90"
+                  className="h-12 rounded-full bg-card px-8 text-sm font-black text-[#078b90] shadow-xl shadow-teal-950/10 hover:bg-card/90"
                 >
                   Request Consultation
                   <ArrowRight size={17} className="ml-2" />
@@ -93,7 +93,7 @@ export default function CTASection() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 rounded-full border-white/40 bg-white/10 px-8 text-sm font-black text-white backdrop-blur hover:bg-white/20"
+                  className="h-12 rounded-full border-white/40 bg-card/10 px-8 text-sm font-black text-white backdrop-blur hover:bg-card/20"
                 >
                   Review Pricing
                 </Button>

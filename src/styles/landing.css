@@ -1,0 +1,135 @@
+@import "./landing-fonts.css";
+
+/*
+ * Landing page design system — scoped under .landing-page so it never
+ * touches the dashboard's own --background/--primary/etc. tokens in
+ * src/index.css. Palette is deliberately warm/terracotta, not the
+ * app's teal, and typography is Fraunces + Public Sans, not
+ * Outfit + Plus Jakarta Sans.
+ */
+
+.landing-page {
+  --ink: 30 12% 10%;
+  --ink-soft: 30 10% 28%;
+  --paper: 42 33% 95%;
+  --paper-raised: 0 0% 100%;
+  --clay: 14 58% 46%;
+  --clay-deep: 14 62% 36%;
+  --gold: 40 62% 52%;
+  --moss: 92 24% 30%;
+  --line: 38 24% 84%;
+
+  --lp-radius-sm: 0.5rem;
+  --lp-radius-md: 1rem;
+  --lp-radius-lg: 1.75rem;
+
+  background: hsl(var(--paper));
+  color: hsl(var(--ink));
+  font-family: "Public Sans", system-ui, sans-serif;
+}
+
+.landing-page[data-theme="dark"],
+.landing-page.dark {
+  --ink: 42 33% 95%;
+  --ink-soft: 40 18% 78%;
+  --paper: 30 14% 8%;
+  --paper-raised: 30 13% 12%;
+  --clay: 14 68% 58%;
+  --clay-deep: 14 72% 66%;
+  --gold: 40 70% 62%;
+  --moss: 92 28% 56%;
+  --line: 30 12% 20%;
+}
+
+.landing-page .lp-display {
+  font-family: "Fraunces Display", Georgia, serif;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.landing-page .lp-display-black {
+  font-family: "Fraunces Display", Georgia, serif;
+  font-weight: 920;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.landing-page .lp-eyebrow {
+  font-family: "Public Sans", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.landing-page .lp-rule {
+  height: 1px;
+  background: hsl(var(--line));
+}
+
+.landing-page .lp-container {
+  max-width: 78rem;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .landing-page .lp-container {
+    padding-inline: 2.5rem;
+  }
+}
+
+.landing-page .lp-card {
+  background: hsl(var(--paper-raised));
+  border: 1px solid hsl(var(--line));
+  border-radius: var(--lp-radius-md);
+}
+
+.landing-page .lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: hsl(var(--clay));
+  color: hsl(42 40% 97%);
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.875rem 1.75rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.landing-page .lp-btn-primary:hover {
+  background: hsl(var(--clay-deep));
+}
+
+.landing-page .lp-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: hsl(var(--ink));
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.875rem 1.75rem;
+  border: 1px solid hsl(var(--line));
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.landing-page .lp-btn-secondary:hover {
+  border-color: hsl(var(--clay));
+  background: hsl(var(--paper-raised));
+}
+
+.landing-page .lp-focus:focus-visible {
+  outline: 2px solid hsl(var(--clay));
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

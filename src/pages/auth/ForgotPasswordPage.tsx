@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5fbfb]">
+    <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-28 top-16 h-80 w-80 rounded-[5rem] bg-[#e4fafa]" />
         <div className="absolute right-[-120px] bottom-20 h-96 w-96 rounded-[5rem] bg-[#dff8f8]" />
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
           <div className="absolute inset-0 bg-gradient-to-tr from-[#057d82]/90 via-[#079ba0]/80 to-[#0aa9ad]/60" />
           
           <div className="absolute left-10 top-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07969a] shadow-xl shadow-teal-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-[#07969a] shadow-xl shadow-teal-950/10">
               <HeartPulse className="h-7 w-7" />
             </div>
             <div>
@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
 
           <div className="relative z-10 flex min-h-screen flex-col justify-center px-12 py-24 xl:px-16">
             <div className="max-w-xl">
-              <div className="mb-7 inline-flex rounded-full bg-white/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
+              <div className="mb-7 inline-flex rounded-full bg-card/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
                 Account Recovery
               </div>
 
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
               Back to login
             </Link>
 
-            <div className="rounded-[2.5rem] border border-[#dcebf0] bg-white/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 lg:p-10">
+            <div className="rounded-[2.5rem] border border-border bg-card/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 lg:p-10">
               <div className="text-center">
                 <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-[#0aa9ad] text-white shadow-xl shadow-teal-500/20">
                   <HeartPulse className="h-8 w-8" />
@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
                     <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8ba0b8]" />
                     <input
                       type="email"
-                      className="h-14 w-full rounded-[1.2rem] border border-[#dcebf0] bg-white px-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                      className="h-14 w-full rounded-[1.2rem] border border-border bg-card px-12 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                       placeholder="name@facility.rw"
                       value={identifier}
                       onChange={(event) => setIdentifier(event.target.value)}

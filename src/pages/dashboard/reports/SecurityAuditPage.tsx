@@ -11,7 +11,7 @@ export default function SecurityAuditPage() {
 
   if (!isAdmin) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
         <Alert variant="destructive">
           <ShieldAlert className="h-4 w-4" />
           <AlertTitle>Access denied</AlertTitle>
@@ -26,16 +26,16 @@ export default function SecurityAuditPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
       <div>
-        <h1 className="font-bold text-2xl text-slate-900">Security Audit</h1>
-        <p className="text-sm text-slate-500 mt-1">Security features coming soon!</p>
+        <h1 className="font-bold text-2xl text-foreground">Security Audit</h1>
+        <p className="text-sm text-muted-foreground mt-1">Security features coming soon!</p>
       </div>
 
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-border shadow-sm">
         <CardHeader>
           <CardTitle>Security Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-500">Full security audit features will be available in future updates.</p>
+          <p className="text-muted-foreground">Full security audit features will be available in future updates.</p>
         </CardContent>
       </Card>
     </div>

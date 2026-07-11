@@ -91,21 +91,21 @@ export default function AddUserPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <div className="mb-8">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard/users")}
-          className="mb-4 text-slate-500 hover:text-slate-900 -ml-4"
+          className="mb-4 text-muted-foreground hover:text-foreground -ml-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Users
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">Add New Staff</h1>
-        <p className="text-sm text-slate-500">Create a new user account and assign roles</p>
+        <h1 className="text-2xl font-bold text-foreground">Add New Staff</h1>
+        <p className="text-sm text-muted-foreground">Create a new user account and assign roles</p>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50 rounded-t-2xl">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 bg-background/50 rounded-t-2xl">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-[#0aa9ad]" />
             User Details
@@ -116,14 +116,14 @@ export default function AddUserPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {isSuperAdmin && (
-              <div className="space-y-3 mb-6 p-4 border border-slate-100 rounded-xl bg-slate-50">
+              <div className="space-y-3 mb-6 p-4 border border-border rounded-xl bg-muted">
                 <Label htmlFor="orgId" className="text-slate-700 font-medium">Organization <span className="text-red-500">*</span></Label>
                 <Select
                   required
                   value={formData.orgId}
                   onValueChange={(val) => setFormData({ ...formData, orgId: val, branchId: "" })}
                 >
-                  <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad] bg-white">
+                  <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad] bg-card">
                     <SelectValue placeholder="Select an organization" />
                   </SelectTrigger>
                   <SelectContent>
@@ -132,7 +132,7 @@ export default function AddUserPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-500">Super Admins must select which organization this user belongs to.</p>
+                <p className="text-xs text-muted-foreground">Super Admins must select which organization this user belongs to.</p>
               </div>
             )}
 
@@ -143,7 +143,7 @@ export default function AddUserPage() {
                   id="firstName"
                   required
                   placeholder="e.g. John"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 />
@@ -154,7 +154,7 @@ export default function AddUserPage() {
                   id="lastName"
                   required
                   placeholder="e.g. Doe"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 />
@@ -166,7 +166,7 @@ export default function AddUserPage() {
                   type="email"
                   required
                   placeholder="john.doe@example.com"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -176,7 +176,7 @@ export default function AddUserPage() {
                 <Input
                   id="phone"
                   placeholder="+250 788 000 000"
-                  className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                  className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
@@ -190,7 +190,7 @@ export default function AddUserPage() {
                   onValueChange={(val) => setFormData({ ...formData, roleId: val })}
                   disabled={rolesLoading}
                 >
-                  <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad]">
+                  <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
                     <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select a role"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -209,7 +209,7 @@ export default function AddUserPage() {
                   onValueChange={(val) => setFormData({ ...formData, branchId: val })}
                   disabled={branchesLoading || (isSuperAdmin && !formData.orgId)}
                 >
-                  <SelectTrigger className="rounded-xl border-slate-200 focus:ring-[#0aa9ad]">
+                  <SelectTrigger className="rounded-xl border-border focus:ring-[#0aa9ad]">
                     <SelectValue placeholder={branchesLoading ? "Loading branches..." : isSuperAdmin && !formData.orgId ? "Select organization first" : "Assign to a branch"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,7 +222,7 @@ export default function AddUserPage() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+            <div className="pt-6 border-t border-border flex justify-end gap-3">
               <Button
                 type="button"
                 variant="outline"

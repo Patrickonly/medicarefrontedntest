@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Tags, Plus, Edit, Trash2, Loader2, CheckCircle2, XCircle,
+  Tags, Plus, Edit, Trash2, Loader2, CheckCircle2, XCircle, Building2,
+  Search, RefreshCcw, MoreVertical, FilterX, Layers, UserX, UserCheck
 } from "lucide-react";
+import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -21,7 +28,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AdvancedDataTable, type BulkActionOption } from "@/components/shared/AdvancedDataTable";
+import { StatCardsSkeleton } from "@/components/shared/StatCardsSkeleton";
+import { TableRowsSkeleton } from "@/components/shared/TableRowsSkeleton";
 
 interface OrganizationType {
   id: string;
@@ -35,14 +43,17 @@ const emptyForm = { name: "", description: "", status: "active" as "active" | "i
 export default function OrganizationTypesPage() {
   const { success, error } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingType, setEditingType] = useState<OrganizationType | null>(null);
-  const [formData, setFormData] = useState(emptyForm);
-  const [typeToDelete, setTypeToDelete] = useState<OrganizationType | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const { data: types = [], isLoading } = useQuery({
+  const [typeToDelete, setTypeToDelete] = useState<OrganizationType | null>(null);
+  const [typeToToggleStatus, setTypeToToggleStatus] = useState<OrganizationType | null>(null);
+
+  const { data: types = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["admin-organization-types"],
     queryFn: async () => {
       const res = await api.get<{ success: boolean; data: OrganizationType[] }>("/api/organization-types");
@@ -50,20 +61,7 @@ export default function OrganizationTypesPage() {
     },
   });
 
-  const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      if (editingType?.id) {
-        return await api.put(`/api/organization-types?id=${editingType.id}`, data);
-      }
-      return await api.post("/api/organization-types", data);
-    },
-    onSuccess: () => {
-      success("Success", `Organization type ${editingType ? "updated" : "created"} successfully`);
-      queryClient.invalidateQueries({ queryKey: ["admin-organization-types"] });
-      closeDialog();
-    },
-    onError: (err: any) => error("Error", err?.message || "Failed to save organization type"),
-  });
+  const isDataLoading = isLoading || isRefetching;
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => api.delete(`/api/organization-types?id=${id}`),
@@ -81,254 +79,389 @@ export default function OrganizationTypesPage() {
     onSuccess: () => {
       success("Success", "Status updated successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-organization-types"] });
+      setTypeToToggleStatus(null);
     },
-    onError: (err: any) => error("Error", err?.message || "Failed to update status"),
+    onError: (err: any) => {
+      error("Error", err?.message || "Failed to update status");
+      setTypeToToggleStatus(null);
+    },
   });
 
-  const filteredTypes = types.filter((t) =>
-    t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (t.description || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTypes = types.filter((t) => {
+    const matchesSearch =
+      t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.description || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" ? true : statusFilter === "active" ? t.status === "active" : t.status !== "active";
+    return matchesSearch && matchesStatus;
+  });
 
-  // --- Bulk actions (checkbox toolbar) ---
-  const bulkActions: BulkActionOption[] = [
-    { label: "Activate", status: "active", icon: CheckCircle2 },
-    { label: "Deactivate", status: "inactive", icon: XCircle, confirmMessage: "This will hide the selected types from registration." },
-    { label: "Delete", icon: Trash2, variant: "destructive", confirmMessage: "This will permanently delete the selected organization types. This action cannot be undone." },
-  ];
+  const totalTypes = types.length;
+  const activeTypes = types.filter((t) => t.status === "active").length;
+  const inactiveTypes = totalTypes - activeTypes;
 
-  // Single-row API, so bulk fans out per selected id and reports a combined result.
-  const handleBulkAction = async (action: BulkActionOption, ids: string[]) => {
-    const results = await Promise.allSettled(
-      ids.map((id) =>
-        action.label === "Delete"
-          ? api.delete(`/api/organization-types?id=${id}`)
-          : api.put(`/api/organization-types?id=${id}`, { status: action.status })
-      )
-    );
-    const succeeded = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.length - succeeded;
-    queryClient.invalidateQueries({ queryKey: ["admin-organization-types"] });
-    if (failed > 0) error("Partially completed", `${succeeded} succeeded, ${failed} failed.`);
-    else success("Success", `${action.label} applied to ${succeeded} type${succeeded === 1 ? "" : "s"}.`);
-  };
-
-  const openDialog = (type?: OrganizationType) => {
-    if (type) {
-      setEditingType(type);
-      setFormData({ name: type.name || "", description: type.description || "", status: type.status || "active" });
-    } else {
-      setEditingType(null);
-      setFormData(emptyForm);
-    }
-    setIsDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingType(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) {
-      error("Error", "Organization type name is required");
-      return;
-    }
-    saveMutation.mutate(formData);
-  };
-
-  const exportColumns = [
-    { key: "name", label: "Name" },
-    { key: "description", label: "Description" },
-    { key: "status", label: "Status" },
-  ];
-  const exportData = filteredTypes.map((t) => ({
-    id: t.id,
-    name: t.name,
-    description: t.description || "—",
-    status: t.status === "active" ? "Active" : "Inactive",
-  }));
+  const currentData = filteredTypes.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filteredTypes.length / pageSize);
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1400px] space-y-6 bg-slate-50/30 p-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Organization Types</h1>
-          <p className="text-sm text-slate-500">Manage the organization types available during registration.</p>
-        </div>
-        <Button onClick={() => openDialog()} className="bg-[#0aa9ad] text-white hover:bg-[#07969a]">
-          <Plus className="mr-2 h-4 w-4" /> New Organization Type
-        </Button>
-      </div>
+    <div className="min-h-screen bg-muted font-sans pb-10">
+      <div className="p-6 max-w-[1600px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-row justify-between items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-[#1e293b] text-3xl font-bold tracking-tight">Organization Types</h1>
+            <p className="text-muted-foreground text-sm mt-1 font-medium">Manage the business types available during organization registration</p>
+          </div>
 
-      <AdvancedDataTable
-        title="Organization Types"
-        description="Select types to export, change status, or delete in bulk."
-        data={exportData}
-        exportColumns={exportColumns}
-        exportFilename={`Organization_Types_${new Date().toISOString().split("T")[0]}`}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search organization types..."
-        isLoading={isLoading}
-        getRowId={(t: any) => String(t.id)}
-        bulkActions={bulkActions}
-        onBulkAction={handleBulkAction}
-        renderTable={(paginatedData, selection) => (
-          <Table>
-            <TableHeader className="bg-slate-50/80">
-              <TableRow className="border-slate-100">
-                {selection && (
-                  <TableHead className="w-10 pl-5">
-                    <Checkbox
-                      checked={paginatedData.length > 0 && paginatedData.every((t: any) => selection.isSelected(String(t.id)))}
-                      onCheckedChange={() => selection.toggleAll(paginatedData.map((t: any) => String(t.id)))}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                )}
-                <TableHead className="font-bold text-slate-600">Name</TableHead>
-                <TableHead className="font-bold text-slate-600">Description</TableHead>
-                <TableHead className="font-bold text-slate-600">Status</TableHead>
-                <TableHead className="pr-6 text-right font-bold text-slate-600">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((row: any) => {
-                  const type = types.find((t) => String(t.id) === String(row.id)) || row;
-                  return (
-                    <TableRow key={type.id} className="border-slate-100 transition-colors hover:bg-slate-50/50">
-                      {selection && (
-                        <TableCell className="pl-5">
-                          <Checkbox
-                            checked={selection.isSelected(String(type.id))}
-                            onCheckedChange={() => selection.toggle(String(type.id))}
-                            aria-label={`Select ${type.name}`}
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell className="font-semibold text-slate-900">
+          <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-xl border border-border shadow-sm">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2 ml-1">Quick Actions:</span>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-muted-foreground hover:bg-muted" onClick={() => navigate("/dashboard/organizations")}>
+              Organizations
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-muted-foreground hover:bg-muted" onClick={() => navigate("/dashboard/branches")}>
+              Branches
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-muted-foreground hover:bg-muted" onClick={() => navigate("/dashboard/users")}>
+              Users
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-[#5b3bf7] bg-[#5b3bf7]/10 hover:bg-[#5b3bf7]/20" onClick={() => navigate("/dashboard/organization-types")}>
+              Types
+            </Button>
+          </div>
+        </div>
+
+        {isDataLoading ? <StatCardsSkeleton count={4} /> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            icon={Layers}
+            label="Total Types"
+            value={totalTypes}
+            colorClass="bg-[#0aa9ad] text-white"
+          />
+          <StatCard
+            icon={UserCheck}
+            label="Active Types"
+            value={activeTypes}
+            colorClass="bg-[#22c55e] text-white"
+          />
+          <StatCard
+            icon={UserX}
+            label="Inactive"
+            value={inactiveTypes}
+            colorClass="bg-[#f59e0b] text-white"
+          />
+          <StatCard
+            icon={Layers}
+            label="Documented"
+            value={types.filter((t) => !!t.description).length}
+            colorClass="bg-[#6366f1] text-white"
+          />
+        </div>
+        )}
+
+        {/* Toolbar 1 */}
+        <div className="flex flex-wrap items-center gap-4 bg-card rounded-t-xl border border-b-0 border-border p-4 shadow-sm">
+          <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search organization types..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 border-border rounded-lg text-sm bg-background/50 focus:bg-card transition-colors"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] h-10 border-border bg-card text-slate-700 font-medium rounded-lg hover:bg-muted">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-2 bg-muted border border-border h-10 px-4 rounded-lg ml-auto">
+            <Tags className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-bold text-slate-700">Total Types: {filteredTypes.length}</span>
+          </div>
+        </div>
+
+        {/* Toolbar 2: Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-4 bg-card border border-border p-4 border-t-slate-50 shadow-sm relative z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isDataLoading}
+            className="h-9 px-4 border-border text-slate-700 bg-card hover:bg-[#5b3bf7]/10 hover:text-[#5b3bf7] hover:border-[#5b3bf7]/30 rounded-lg font-bold transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
+            onClick={() => refetch()}
+          >
+            <RefreshCcw className={`w-4 h-4 mr-2 ${isDataLoading ? "animate-spin text-[#5b3bf7]" : ""}`} />
+            {isDataLoading ? "Refreshing..." : "Refresh"}
+          </Button>
+          <Button size="sm" className="h-9 px-4 bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white rounded-lg font-medium transition-colors" onClick={() => navigate("/dashboard/organization-types/add")}>
+            <Plus className="w-4 h-4 mr-2" /> Add Type
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9 border-border text-slate-700 rounded-lg hover:bg-muted transition-colors">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+              <DropdownMenuItem className="rounded-md cursor-pointer font-medium text-slate-700 py-2 hover:bg-muted" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+                <FilterX className="w-4 h-4 mr-2 text-muted-foreground" /> Reset Filters
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Data Table */}
+        <div className="bg-card border border-border border-t-0 p-5 rounded-b-xl shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">Show entries:</span>
+            <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setPage(1); }}>
+              <SelectTrigger className="h-8 w-[70px] text-xs rounded-lg border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isDataLoading ? (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table className="min-w-[700px]">
+                <TableHeader className="bg-background/50">
+                  <TableRow className="border-b border-border hover:bg-transparent">
+                    <TableHead className="w-[80px] font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4 pl-4">NO.</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4">NAME</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4">DESCRIPTION</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider w-[180px] py-4">STATUS</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider text-right w-[120px] py-4 pr-6">ACTIONS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRowsSkeleton columns={["text", "avatar", "text", "badge", "actions"]} />
+                </TableBody>
+              </Table>
+            </div>
+          ) : currentData.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table className="min-w-[700px]">
+                <TableHeader className="bg-background/50">
+                  <TableRow className="border-b border-border hover:bg-transparent">
+                    <TableHead className="w-[80px] font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4 pl-4">NO.</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4">NAME</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider py-4">DESCRIPTION</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider w-[180px] py-4">STATUS</TableHead>
+                    <TableHead className="font-bold text-muted-foreground text-[11px] uppercase tracking-wider text-right w-[120px] py-4 pr-6">ACTIONS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentData.map((type, idx) => (
+                    <TableRow key={type.id} className="border-b border-slate-50 hover:bg-background/80 transition-colors">
+                      <TableCell className="text-sm text-muted-foreground font-medium py-3 pl-4">{(page - 1) * pageSize + idx + 1}</TableCell>
+                      <TableCell className="py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-[#0aa9ad]">
-                            <Tags className="h-4 w-4" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#0aa9ad]/15 bg-[#0aa9ad]/10 text-[#0aa9ad]">
+                            <Tags className="h-3.5 w-3.5" />
                           </div>
-                          {type.name}
+                          <span className="text-sm font-semibold text-slate-700">{type.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[360px] truncate text-sm text-slate-600">{type.description || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
+                        <span className="text-sm text-muted-foreground font-medium max-w-[360px] truncate block">{type.description || "N/A"}</span>
+                      </TableCell>
+                      <TableCell className="py-3">
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={type.status === "active"}
                             disabled={statusMutation.isPending}
                             onCheckedChange={(checked) => statusMutation.mutate({ id: type.id, status: checked ? "active" : "inactive" })}
                           />
-                          <Badge className={type.status === "active" ? "border-none bg-emerald-100 text-emerald-700" : "border-none bg-slate-100 text-slate-600"}>
-                            {type.status === "active" ? "Active" : "Inactive"}
-                          </Badge>
+                          {type.status === "active" ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#ecfdf5] text-[#10b981] uppercase tracking-wide">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-muted text-muted-foreground uppercase tracking-wide">
+                              Inactive
+                            </span>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openDialog(type)} className="text-slate-400 hover:text-[#0aa9ad]">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setTypeToDelete(type)} className="text-slate-400 hover:text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right py-3 pr-6">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className={`h-7 w-7 rounded shadow-sm transition-colors ${type.status === "active" ? "border-amber-200 text-amber-500 hover:bg-amber-50 hover:text-amber-600" : "border-emerald-200 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600"}`}
+                            title={type.status === "active" ? "Suspend" : "Activate"}
+                            onClick={() => setTypeToToggleStatus(type)}
+                          >
+                            {type.status === "active" ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded border-blue-200 text-blue-500 hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-sm" title="Edit" onClick={() => navigate(`/dashboard/organization-types/edit/${type.id}`)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="outline" size="icon" className="h-7 w-7 rounded border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm" title="Delete" onClick={() => setTypeToDelete(type)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={selection ? 5 : 4} className="h-24 text-center text-slate-500">
-                    No organization types found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
-      />
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="rounded-2xl sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{editingType ? "Edit Organization Type" : "New Organization Type"}</DialogTitle>
-            <DialogDescription>
-              {editingType ? "Update this organization type." : "Add a new organization type for registration."}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g. Hospital, Clinic, Pharmacy"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="rounded-xl border-slate-200"
-              />
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                placeholder="Short description shown to admins"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="flex min-h-[80px] w-full rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-950"
-                rows={3}
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-              <div>
-                <Label htmlFor="status">Active</Label>
-                <p className="text-xs text-slate-500">Inactive types are hidden from registration.</p>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-background/50 rounded-xl border border-dashed border-border mt-2 mb-4 mx-2">
+              <div className="bg-card w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-sm border border-border">
+                <Tags className="w-10 h-10 text-slate-300" />
               </div>
-              <Switch
-                id="status"
-                checked={formData.status === "active"}
-                onCheckedChange={(checked) => setFormData({ ...formData, status: checked ? "active" : "inactive" })}
-              />
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={closeDialog} className="rounded-xl">Cancel</Button>
-              <Button type="submit" disabled={saveMutation.isPending} className="rounded-xl bg-[#0aa9ad] text-white hover:bg-[#07969a]">
-                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save"}
+              <h3 className="text-xl font-bold text-slate-700 mb-2">No organization types found</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md text-center">We couldn't find any organization types matching your current search or filter criteria. Try adjusting them to see more results.</p>
+              <Button className="bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white shadow-sm px-6 h-10" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}>
+                <FilterX className="w-4 h-4 mr-2" /> Clear All Filters
               </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </div>
+          )}
 
-      {/* Single-row Delete Confirmation */}
-      <AlertDialog open={!!typeToDelete} onOpenChange={(open) => !open && setTypeToDelete(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{typeToDelete?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This organization type will no longer be available during registration. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => typeToDelete && deleteMutation.mutate(typeToDelete.id)}
-              disabled={deleteMutation.isPending}
-              className="rounded-xl bg-red-600 text-white hover:bg-red-700"
-            >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes, delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-5 gap-4">
+            <div className="text-sm text-muted-foreground font-medium">
+              Showing {(page - 1) * pageSize + (currentData.length > 0 ? 1 : 0)} to {(page - 1) * pageSize + currentData.length} of {filteredTypes.length} entries
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                className="text-muted-foreground text-sm font-medium px-3 hover:text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={page === pageNum ? "default" : "ghost"}
+                    className={`w-8 h-8 p-0 rounded-md font-medium transition-colors ${
+                      page === pageNum ? "bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white shadow-sm" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                    onClick={() => setPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+
+              {totalPages > 5 && <span className="text-muted-foreground px-1 font-medium">...</span>}
+
+              {totalPages > 5 && (
+                <Button
+                  variant={page === totalPages ? "default" : "ghost"}
+                  className={`w-8 h-8 p-0 rounded-md font-medium transition-colors ${
+                    page === totalPages ? "bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white shadow-sm" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setPage(totalPages)}
+                >
+                  {totalPages}
+                </Button>
+              )}
+
+              <Button
+                variant="ghost"
+                className="text-muted-foreground text-sm font-medium px-3 hover:bg-muted transition-colors disabled:opacity-50"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || totalPages === 0}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Removed Create/Edit Dialog */}
+
+        {/* Single-row Delete Confirmation */}
+        <AlertDialog open={!!typeToDelete} onOpenChange={(open) => !open && setTypeToDelete(null)}>
+          <AlertDialogContent className="rounded-2xl max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-black text-foreground">Delete Organization Type</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground font-medium mt-2">
+                Are you absolutely sure you want to permanently delete{" "}
+                <span className="font-bold text-foreground">
+                  {typeToDelete?.name}
+                </span>? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6 gap-3 sm:gap-0">
+              <AlertDialogCancel className="rounded-xl border-border font-bold h-11 hover:bg-muted">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (typeToDelete) deleteMutation.mutate(typeToDelete.id);
+                }}
+                disabled={deleteMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 rounded-xl font-bold h-11"
+              >
+                {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                {deleteMutation.isPending ? "Deleting..." : "Delete Type"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Status Toggle Confirmation */}
+        <AlertDialog open={!!typeToToggleStatus} onOpenChange={(open) => !open && setTypeToToggleStatus(null)}>
+          <AlertDialogContent className="rounded-2xl max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl font-black text-foreground">
+                {typeToToggleStatus?.status === "active" ? "Suspend Type" : "Activate Type"}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground font-medium mt-2">
+                Are you sure you want to {typeToToggleStatus?.status === "active" ? "suspend" : "activate"}{" "}
+                <span className="font-bold text-foreground">
+                  {typeToToggleStatus?.name}
+                </span>?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-6 gap-3 sm:gap-0">
+              <AlertDialogCancel className="rounded-xl border-border font-bold h-11 hover:bg-muted">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (typeToToggleStatus) {
+                    statusMutation.mutate({ 
+                      id: typeToToggleStatus.id, 
+                      status: typeToToggleStatus.status === "active" ? "inactive" : "active" 
+                    });
+                  }
+                }}
+                className={`${
+                  typeToToggleStatus?.status === "active"
+                    ? "bg-amber-500 hover:bg-amber-600"
+                    : "bg-emerald-500 hover:bg-emerald-600"
+                } text-white rounded-xl font-bold h-11`}
+                disabled={statusMutation.isPending}
+              >
+                {statusMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
+                 typeToToggleStatus?.status === "active" ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
+                {statusMutation.isPending ? "Updating..." : "Confirm"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

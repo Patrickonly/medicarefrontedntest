@@ -21,7 +21,7 @@ export default function AddInventoryPage() {
     queryKey: ["categories", organizationId],
     queryFn: async () => {
       const res = await api.get<any[]>("/api/products/categories");
-      return res || [];
+      return Array.isArray(res) ? res : (res?.results || res?.data || []);
     },
     enabled: !!organizationId,
   });
@@ -41,22 +41,18 @@ export default function AddInventoryPage() {
 
   const receiveMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await api.post("/api/inventory/receive", data);
+      const res = await api.post<{ success: boolean; data: any }>("/api/inventory/receive", data);
       return res.data;
     },
     onSuccess: () => {
-      success("Stock Received", {
-        description: `Successfully added ${formData.quantity} units of ${formData.productName}.`,
-      });
+      success("Stock Received", `Successfully added ${formData.quantity} units of ${formData.productName}.`);
       queryClient.invalidateQueries({ queryKey: ["product-batches"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       navigate("/dashboard/inventory");
     },
     onError: (err: any) => {
-      error("Error", {
-        description: err.message || "Failed to record inventory.",
-      });
+      error("Error", err.message || "Failed to record inventory.");
     }
   });
 
@@ -86,21 +82,21 @@ export default function AddInventoryPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <div className="mb-8">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard/inventory")}
-          className="mb-4 text-slate-500 hover:text-slate-900 -ml-4"
+          className="mb-4 text-muted-foreground hover:text-foreground -ml-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Inventory
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">Goods Received Note (GRN)</h1>
-        <p className="text-sm text-slate-500">Record new stock batches arriving from suppliers.</p>
+        <h1 className="text-2xl font-bold text-foreground">Goods Received Note (GRN)</h1>
+        <p className="text-sm text-muted-foreground">Record new stock batches arriving from suppliers.</p>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50 rounded-t-2xl">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 bg-background/50 rounded-t-2xl">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <PackagePlus className="h-5 w-5 text-[#0aa9ad]" />
             Product Details
@@ -110,7 +106,7 @@ export default function AddInventoryPage() {
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <div className="bg-muted p-4 rounded-xl border border-border space-y-4">
               <h3 className="font-semibold text-slate-700">1. Product Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
@@ -119,7 +115,7 @@ export default function AddInventoryPage() {
                     id="productName"
                     required
                     placeholder="e.g. Paracetamol 500mg"
-                    className="rounded-xl border-slate-200 bg-white"
+                    className="rounded-xl border-border bg-card"
                     value={formData.productName}
                     onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
                   />
@@ -130,7 +126,7 @@ export default function AddInventoryPage() {
                     value={formData.categoryId}
                     onValueChange={(val) => setFormData({ ...formData, categoryId: val })}
                   >
-                    <SelectTrigger className="rounded-xl border-slate-200 bg-white">
+                    <SelectTrigger className="rounded-xl border-border bg-card">
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -144,7 +140,7 @@ export default function AddInventoryPage() {
                   {formData.categoryId === "new" && (
                     <Input 
                       placeholder="Enter new category name..."
-                      className="mt-2 rounded-xl bg-white"
+                      className="mt-2 rounded-xl bg-card"
                       value={formData.newCategoryName}
                       onChange={e => setFormData({ ...formData, newCategoryName: e.target.value })}
                     />
@@ -156,7 +152,7 @@ export default function AddInventoryPage() {
                   <Input
                     id="uom"
                     placeholder="e.g. Kgs, Bottles, Pieces"
-                    className="rounded-xl border-slate-200 bg-white"
+                    className="rounded-xl border-border bg-card"
                     value={formData.unitOfMeasure}
                     onChange={(e) => setFormData({ ...formData, unitOfMeasure: e.target.value })}
                   />
@@ -166,7 +162,7 @@ export default function AddInventoryPage() {
                   <Input
                     id="reorder"
                     type="number"
-                    className="rounded-xl border-slate-200 bg-white"
+                    className="rounded-xl border-border bg-card"
                     value={formData.reorderLevel}
                     onChange={(e) => setFormData({ ...formData, reorderLevel: Number(e.target.value) })}
                   />
@@ -182,7 +178,7 @@ export default function AddInventoryPage() {
                   <Input
                     id="batchNumber"
                     placeholder="Auto-generated if empty"
-                    className="rounded-xl border-emerald-200 bg-white"
+                    className="rounded-xl border-emerald-200 bg-card"
                     value={formData.batchNumber}
                     onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
                   />
@@ -193,7 +189,7 @@ export default function AddInventoryPage() {
                     id="expiryDate"
                     type="date"
                     required
-                    className="rounded-xl border-emerald-200 bg-white"
+                    className="rounded-xl border-emerald-200 bg-card"
                     value={formData.expiryDate}
                     onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
                   />
@@ -206,7 +202,7 @@ export default function AddInventoryPage() {
                     type="number"
                     required
                     min="1"
-                    className="rounded-xl border-emerald-200 bg-white"
+                    className="rounded-xl border-emerald-200 bg-card"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
                   />
@@ -216,7 +212,7 @@ export default function AddInventoryPage() {
                   <Input
                     id="unitPrice"
                     type="number"
-                    className="rounded-xl border-emerald-200 bg-white"
+                    className="rounded-xl border-emerald-200 bg-card"
                     value={formData.unitCost}
                     onChange={(e) => setFormData({ ...formData, unitCost: Number(e.target.value) })}
                   />
@@ -227,7 +223,7 @@ export default function AddInventoryPage() {
                     id="sellingPrice"
                     type="number"
                     required
-                    className="rounded-xl border-emerald-200 bg-white"
+                    className="rounded-xl border-emerald-200 bg-card"
                     value={formData.sellingPrice}
                     onChange={(e) => setFormData({ ...formData, sellingPrice: Number(e.target.value) })}
                   />
@@ -235,7 +231,7 @@ export default function AddInventoryPage() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+            <div className="pt-6 border-t border-border flex justify-end gap-3">
               <Button
                 type="button"
                 variant="outline"

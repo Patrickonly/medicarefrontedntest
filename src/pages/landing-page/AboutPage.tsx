@@ -59,7 +59,7 @@ const roadmap = [
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-[#f5fbfb]">
+    <div className="min-h-screen bg-background">
       <LandingNavbar />
 
       <section className="relative overflow-hidden pt-32 pb-20">
@@ -82,7 +82,7 @@ export default function AboutPage() {
             transition={{ duration: 0.45 }}
             className="mx-auto max-w-4xl text-center"
           >
-            <span className="inline-flex rounded-full border border-[#bceef0] bg-white px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
+            <span className="inline-flex rounded-full border border-[#bceef0] bg-card px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
               About MediCare ONE
             </span>
 
@@ -97,7 +97,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="border-y border-[#dcebf0] bg-white py-14">
+      <section className="border-y border-border bg-card py-14">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {focusAreas.map((area, index) => (
@@ -107,7 +107,7 @@ export default function AboutPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.06 }}
-                className="rounded-[2rem] border border-[#dcebf0] bg-[#f6fbfb] p-6 transition hover:border-[#8ee4e7] hover:bg-[#e8fbfb]"
+                className="rounded-[2rem] border border-border bg-muted p-6 transition hover:border-[#8ee4e7] hover:bg-[#e8fbfb]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0aa9ad] text-white">
                   <area.icon className="h-6 w-6" />
@@ -123,7 +123,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-white py-20 sm:py-24">
+      <section className="bg-card py-20 sm:py-24">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <motion.div initial={{ opacity: 0, x: -18 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
@@ -160,10 +160,10 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-[#f5fbfb] py-20 sm:py-24">
+      <section className="bg-background py-20 sm:py-24">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-12 max-w-3xl text-center">
-            <span className="inline-flex rounded-full border border-[#bceef0] bg-white px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
+            <span className="inline-flex rounded-full border border-[#bceef0] bg-card px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
               Engineering Principles
             </span>
 
@@ -180,7 +180,7 @@ export default function AboutPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.06 }}
-                className="rounded-[2rem] border border-[#dcebf0] bg-white p-6 shadow-sm transition hover:border-[#8ee4e7] hover:shadow-xl"
+                className="rounded-[2rem] border border-border bg-card p-6 shadow-sm transition hover:border-[#8ee4e7] hover:shadow-xl"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e8fbfb] text-[#07969a]">
                   <item.icon className="h-6 w-6" />
@@ -194,7 +194,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-white py-20 sm:py-24">
+      <section className="bg-card py-20 sm:py-24">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
@@ -214,7 +214,7 @@ export default function AboutPage() {
             <div className="lg:col-span-7">
               <div className="grid gap-3 sm:grid-cols-2">
                 {roadmap.map((item) => (
-                  <div key={item} className="flex items-start gap-3 rounded-[1.5rem] border border-[#dcebf0] bg-[#f6fbfb] p-4">
+                  <div key={item} className="flex items-start gap-3 rounded-[1.5rem] border border-border bg-muted p-4">
                     <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#0aa9ad] text-white">
                       <HeartPulse className="h-3.5 w-3.5" />
                     </div>

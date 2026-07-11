@@ -11,6 +11,8 @@ import { api } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Clock, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
+import { PageTransition } from "@/components/ui/page-transition";
+import { TableRowsSkeleton } from "@/components/shared/TableRowsSkeleton";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-RW", { style: "currency", currency: "RWF", maximumFractionDigits: 0 }).format(value || 0);
@@ -110,11 +112,11 @@ export default function AgrovetShiftsPage() {
   const hasOpenShift = !!currentShift;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <PageTransition className="p-6 max-w-[1600px] mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cashier Shifts</h1>
-          <p className="text-slate-500">Open and close your cash drawer shifts.</p>
+          <h1 className="text-2xl font-bold text-foreground">Cashier Shifts</h1>
+          <p className="text-muted-foreground">Open and close your cash drawer shifts.</p>
         </div>
         {!hasOpenShift && (
           <Button onClick={() => setIsDialogOpen(true)} className="bg-[#0aa9ad] hover:bg-[#07969a] rounded-xl">
@@ -153,7 +155,7 @@ export default function AgrovetShiftsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-white"
+                className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-card"
                 onClick={() => { setActiveShift(currentShift); setIsClosingDialog(true); }}
               >
                 <CheckCircle className="w-4 h-4 mr-2" /> Close Shift
@@ -163,8 +165,8 @@ export default function AgrovetShiftsPage() {
         </Card>
       )}
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="bg-background/50 border-b border-border py-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Clock className="w-5 h-5 text-[#0aa9ad]" />
             Shift History
@@ -183,11 +185,7 @@ export default function AgrovetShiftsPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
-                  </TableCell>
-                </TableRow>
+                <TableRowsSkeleton columns={["text", "text", "text", "text", "badge"]} />
               ) : (
                 shifts.map((shift: any) => (
                   <TableRow key={shift.id}>
@@ -203,7 +201,7 @@ export default function AgrovetShiftsPage() {
                       ) : shift.status === "DISCREPANCY" ? (
                         <Badge className="bg-amber-50 text-amber-700 border-amber-200">Discrepancy</Badge>
                       ) : (
-                        <Badge className="bg-slate-50 text-slate-500 border-slate-200">Closed</Badge>
+                        <Badge className="bg-muted text-muted-foreground border-border">Closed</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -211,7 +209,7 @@ export default function AgrovetShiftsPage() {
               )}
               {!isLoading && shifts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">No shifts recorded.</TableCell>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No shifts recorded.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -270,6 +268,6 @@ export default function AgrovetShiftsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageTransition>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CreditCard, DollarSign, Receipt, FileText, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
@@ -35,14 +36,15 @@ export default function BillingPage() {
   const { data: customers = [], isLoading: isCustomersLoading } = useQuery({
     queryKey: ["customers", organizationId],
     queryFn: async () => {
-      const res = await api.get("/api/customers");
-      return res.data || [];
+      const res = await api.get<any[]>("/api/customers");
+      const list = Array.isArray(res) ? res : (res?.results || res?.data || []);
+      return list.map((c: any) => ({ ...c, name: c.full_name || c.name }));
     },
     enabled: !!organizationId,
   });
 
   const fetchInvoices = () => sales;
-  const { paginatedData, isLoading: isDataLoading, search, setSearch, page, setPage, pageSize, totalPages, total } = useData<any>({ fetchFn: fetchInvoices, searchFields: ["invoice_number", "invoiceNumber"] });
+  const { paginatedData, isLoading: isDataLoading, search, setSearch, page, setPage, pageSize, setPageSize, totalPages, total } = useData<any>({ fetchFn: fetchInvoices, searchFields: ["invoice_number", "invoiceNumber"] });
 
   const totalRevenue = sales.reduce((s: number, i: any) => s + (i.status === "Completed" ? (i.totalAmount || i.total_amount || 0) : 0), 0);
   const outstanding = sales.reduce((s: number, i: any) => s + (i.status === "pending" || i.status === "Pending" ? (i.totalAmount || i.total_amount || 0) : 0), 0);
@@ -90,6 +92,20 @@ export default function BillingPage() {
       <DataTableCard title="Recent Sales / Invoices">
         {isLoading ? <TableSkeleton rows={8} /> : (
           <>
+            <div className="flex items-center gap-2 px-6 pt-4">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Show entries:</span>
+              <Select value={String(pageSize)} onValueChange={(val) => setPageSize(Number(val))}>
+                <SelectTrigger aria-label="Entries per page" className="h-8 w-[70px] text-xs rounded-lg border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-border bg-secondary/30">
@@ -102,7 +118,7 @@ export default function BillingPage() {
                     const customer = getPatient(inv.customerId || inv.customer_id);
                     const totalAmt = inv.totalAmount || inv.total_amount || 0;
                     const balance = status === "paid" ? 0 : totalAmt;
-                    const invoiceNo = inv.invoiceNumber || inv.invoice_number || inv.ebmReceiptNo || inv.ebm_receipt_no || inv.id.split("-")[0].toUpperCase();
+                    const invoiceNo = inv.invoiceNumber || inv.invoice_number || inv.ebmReceiptNo || inv.ebm_receipt_no || String(inv.id ?? "").split("-")[0].toUpperCase();
                     
                     return (
                       <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-secondary/20 transition-colors">

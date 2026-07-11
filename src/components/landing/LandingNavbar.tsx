@@ -16,7 +16,7 @@ export default function LandingNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[#dcebf0] bg-white/95 backdrop-blur-xl">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-card/95 backdrop-blur-xl">
       <div className="medicare-container flex h-[72px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#10c4c7] to-[#07969a] text-white shadow-lg shadow-cyan-500/25">
@@ -81,7 +81,7 @@ export default function LandingNavbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-b border-[#dcebf0] bg-white lg:hidden"
+            className="overflow-hidden border-b border-border bg-card lg:hidden"
           >
             <div className="space-y-1 px-4 py-4">
               {navLinks.map((link) => (
@@ -109,7 +109,7 @@ export default function LandingNavbar() {
                 </Link>
               </div>
 
-              <div className="mt-4 flex items-center gap-3 rounded-3xl border border-[#dcebf0] bg-[#f1fbfb] p-4">
+              <div className="mt-4 flex items-center gap-3 rounded-3xl border border-border bg-muted p-4">
                 <Building2 className="h-5 w-5 text-[#078b90]" />
                 <p className="text-xs font-bold leading-relaxed text-[#5e6b84]">
                   Hospitals, clinics, pharmacies, laboratories and healthcare networks.

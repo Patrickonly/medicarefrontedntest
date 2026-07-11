@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, Plus, Search, Loader2, Save } from "lucide-react";
+import { ShieldCheck, Plus, Search, Loader2, Save, KeyRound, Users2, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCardsSkeleton } from "@/components/shared/StatCardsSkeleton";
+import { StatCard } from "@/components/shared/StatCard";
 
 // Stable reference so the "no data yet" default doesn't create a new array
 // every render - a fresh `[]` literal here would re-trigger effects that
@@ -21,13 +25,11 @@ const EMPTY_LIST: any[] = [];
 export default function RolesPermissionsPage() {
   const { success, error } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState<any>(null);
-  
-  // Create role dialog
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleDesc, setNewRoleDesc] = useState("");
+
+  // Removed Create role dialog state since we use a dedicated page now.
 
   const {
     data: roles = EMPTY_LIST,
@@ -103,21 +105,7 @@ export default function RolesPermissionsPage() {
     }
   }, [rolePermissions, selectedRole]);
 
-  const createRoleMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await api.post("/api/roles", data);
-    },
-    onSuccess: () => {
-      success("Success", "Role created successfully");
-      queryClient.invalidateQueries({ queryKey: ["roles"] });
-      setIsDialogOpen(false);
-      setNewRoleName("");
-      setNewRoleDesc("");
-    },
-    onError: (err: any) => {
-      error("Error", err.message || "Failed to create role");
-    },
-  });
+  // Removed createRoleMutation as it's now handled in AddRolePage.tsx
 
   const updatePermissionsMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -132,14 +120,7 @@ export default function RolesPermissionsPage() {
     },
   });
 
-  const handleCreateRole = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName) {
-      error("Error", "Role name is required");
-      return;
-    }
-    createRoleMutation.mutate({ name: newRoleName, description: newRoleDesc });
-  };
+  // Removed handleCreateRole as it's moved to AddRolePage.tsx
 
   const handleSavePermissions = () => {
     if (!selectedRole) return;
@@ -157,184 +138,218 @@ export default function RolesPermissionsPage() {
     }));
   };
 
-  const filteredRoles = roles.filter((role: any) => 
+  const filteredRoles = roles.filter((role: any) =>
     role.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const grantedCount = Object.values(editedPermissions).filter(Boolean).length;
+
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Roles & Permissions</h1>
-          <p className="text-sm text-slate-500">Manage user roles and configure their access levels.</p>
-        </div>
-        <Button onClick={() => setIsDialogOpen(true)} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white">
-          <Plus className="mr-2 h-4 w-4" /> Add Role
-        </Button>
-      </div>
+    <div className="min-h-screen bg-muted font-sans pb-10">
+      <div className="p-6 max-w-[1600px] mx-auto">
+        {/* Header */}
+        <div className="flex flex-row justify-between items-center mb-6 gap-4 flex-wrap">
+          <div>
+            <h1 className="text-[#1e293b] text-3xl font-bold tracking-tight">Roles &amp; Permissions</h1>
+            <p className="text-muted-foreground text-sm mt-1 font-medium">Manage user roles and configure their access levels</p>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Roles List */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl col-span-1 h-[calc(100vh-200px)] flex flex-col">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-[#0aa9ad]" />
+          <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-xl border border-border shadow-sm">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2 ml-1">Quick Actions:</span>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-muted-foreground hover:bg-muted" onClick={() => navigate("/dashboard/organizations")}>
+              Organizations
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-muted-foreground hover:bg-muted" onClick={() => navigate("/dashboard/users")}>
+              Users
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 font-medium text-[#5b3bf7] bg-[#5b3bf7]/10 hover:bg-[#5b3bf7]/20" onClick={() => navigate("/dashboard/roles-permissions")}>
               Roles
-            </CardTitle>
-            <div className="relative mt-2 w-full">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search roles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 rounded-xl border-slate-200 bg-slate-50 focus-visible:ring-[#0aa9ad]"
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 overflow-y-auto flex-1">
-            {rolesLoading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-              </div>
-            ) : filteredRoles.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {filteredRoles.map((role: any) => (
-                  <li key={role.id}>
-                    <button
-                      onClick={() => setSelectedRole(role)}
-                      className={`w-full text-left p-4 hover:bg-slate-50 transition-colors ${selectedRole?.id === role.id ? 'bg-[#e8fbfb] border-l-4 border-[#0aa9ad]' : 'border-l-4 border-transparent'}`}
-                    >
-                      <p className="font-semibold text-slate-900 capitalize">{role.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">{role.description || "System Role"}</p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="p-8 text-center text-slate-500">
-                No roles found.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </Button>
+          </div>
+        </div>
 
-        {/* Permissions Editor */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl col-span-1 lg:col-span-2 h-[calc(100vh-200px)] flex flex-col">
-          {selectedRole ? (
-            <>
-              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold capitalize">{selectedRole.name} Permissions</CardTitle>
-                  <CardDescription>Configure what users with this role can do.</CardDescription>
+        {/* KPI Cards */}
+        {rolesLoading || permsLoading ? <StatCardsSkeleton count={3} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" /> : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <StatCard
+            icon={ShieldCheck}
+            label="Total Roles"
+            value={roles.length}
+            colorClass="bg-[#0aa9ad] text-white"
+          />
+          <StatCard
+            icon={KeyRound}
+            label="Total Permissions"
+            value={permissionsList.length}
+            colorClass="bg-[#6366f1] text-white"
+          />
+          <StatCard
+            icon={ListChecks}
+            label={selectedRole ? `${selectedRole.name} Grants` : "Selected Role Grants"}
+            value={selectedRole ? grantedCount : 0}
+            colorClass="bg-[#22c55e] text-white"
+          />
+        </div>
+        )}
+
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-4 bg-card rounded-xl border border-border p-4 shadow-sm mb-6">
+          <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search roles..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 border-border rounded-lg text-sm bg-background/50 focus:bg-card transition-colors"
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-muted border border-border h-10 px-4 rounded-lg">
+            <Users2 className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-bold text-slate-700">Roles: {filteredRoles.length}</span>
+          </div>
+          <Button size="sm" className="h-9 px-4 bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white rounded-lg font-medium transition-colors" onClick={() => navigate("/dashboard/roles-permissions/add")}>
+            <Plus className="w-4 h-4 mr-2" /> Create Role
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Roles List */}
+          <Card className="border-border shadow-sm rounded-xl col-span-1 h-[calc(100vh-360px)] min-h-[420px] flex flex-col">
+            <CardHeader className="border-b border-border py-4">
+              <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[#5b3bf7]" />
+                Roles
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 overflow-y-auto flex-1">
+              {rolesLoading ? (
+                <div className="divide-y divide-slate-100">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="p-4 border-l-4 border-transparent space-y-2">
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-2.5 w-40" />
+                    </div>
+                  ))}
                 </div>
-                <Button 
-                  onClick={handleSavePermissions}
-                  disabled={updatePermissionsMutation.isPending}
-                  className="bg-slate-900 hover:bg-slate-800 text-white"
-                >
-                  {updatePermissionsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save Permissions
-                </Button>
-              </CardHeader>
-              <CardContent className="p-6 overflow-y-auto flex-1">
-                {permsLoading || rolePermsLoading ? (
-                  <div className="flex justify-center p-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              ) : filteredRoles.length > 0 ? (
+                <ul className="divide-y divide-slate-100">
+                  {filteredRoles.map((role: any) => (
+                    <li key={role.id}>
+                      <div className="flex items-center justify-between p-4 hover:bg-muted transition-colors">
+                        <button
+                          onClick={() => setSelectedRole(role)}
+                          className={`flex-1 text-left ${selectedRole?.id === role.id ? "bg-[#5b3bf7]/5 border-l-4 border-[#5b3bf7]" : "border-l-4 border-transparent"}`}
+                        >
+                          <div className="pl-3">
+                            <p className="font-semibold text-slate-700 capitalize">{role.name}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{role.description || "System Role"}</p>
+                          </div>
+                        </button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/dashboard/roles-permissions/edit/${role.id}`)}
+                          className="ml-2 rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50"
+                        >
+                          Edit Details
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">
+                  No roles found.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Permissions Editor */}
+          <Card className="border-border shadow-sm rounded-xl col-span-1 lg:col-span-2 h-[calc(100vh-360px)] min-h-[420px] flex flex-col">
+            {selectedRole ? (
+              <>
+                <CardHeader className="border-b border-border py-4 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-700 capitalize">{selectedRole.name} Permissions</CardTitle>
+                    <CardDescription>Configure what users with this role can do.</CardDescription>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {permissionsList.map((perm: any) => {
-                      // Permissions come back as { id, action, subject, description } -
-                      // there is no `name` field, so derive both the key and the
-                      // display label from action/subject (falling back to name
-                      // in case a plain string or differently-shaped record shows up).
-                      const pId = typeof perm === 'string' ? perm : perm.id ?? perm.name ?? `${perm.action}_${perm.subject}`;
-                      const pName = typeof perm === 'string'
-                        ? perm
-                        : perm.name ?? [perm.action, perm.subject].filter(Boolean).join(' ') ?? 'Permission';
-                      return (
-                        <div key={pId} className="flex items-start space-x-3 p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
-                          <Checkbox 
-                            id={`perm-${pId}`} 
-                            checked={!!editedPermissions[pId]}
-                            onCheckedChange={() => togglePermission(pId)}
-                            className="mt-1 data-[state=checked]:bg-[#0aa9ad] data-[state=checked]:border-[#0aa9ad]"
-                          />
-                          <div className="grid gap-1.5 leading-none">
-                            <label
-                              htmlFor={`perm-${pId}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-900 cursor-pointer capitalize"
-                            >
-                              {pName.replace(/_/g, ' ')}
-                            </label>
-                            {perm.description && (
-                              <p className="text-xs text-slate-500">
-                                {perm.description}
-                              </p>
-                            )}
+                  <Button
+                    onClick={handleSavePermissions}
+                    disabled={updatePermissionsMutation.isPending}
+                    className="bg-[#5b3bf7] hover:bg-[#4a2ee0] text-white rounded-lg font-medium"
+                  >
+                    {updatePermissionsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Permissions
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-6 overflow-y-auto flex-1">
+                  {permsLoading || rolePermsLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="flex items-start space-x-3 p-3 border border-border rounded-xl">
+                          <Skeleton className="mt-1 h-4 w-4 rounded" />
+                          <div className="flex-1 space-y-1.5">
+                            <Skeleton className="h-3.5 w-32" />
+                            <Skeleton className="h-2.5 w-full max-w-[180px]" />
                           </div>
                         </div>
-                      )
-                    })}
-                    {permissionsList.length === 0 && (
-                      <p className="text-slate-500">No permissions available in the system.</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-500">
-              <ShieldCheck className="h-16 w-16 text-slate-200 mb-4" />
-              <p className="text-lg font-medium">Select a role to edit permissions</p>
-              <p className="text-sm mt-1">Choose a role from the left sidebar to view and modify its access levels.</p>
-            </div>
-          )}
-        </Card>
-      </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {permissionsList.map((perm: any) => {
+                        // Permissions come back as { id, action, subject, description } -
+                        // there is no `name` field, so derive both the key and the
+                        // display label from action/subject (falling back to name
+                        // in case a plain string or differently-shaped record shows up).
+                        const pId = typeof perm === 'string' ? perm : perm.id ?? perm.name ?? `${perm.action}_${perm.subject}`;
+                        const pName = typeof perm === 'string'
+                          ? perm
+                          : perm.name ?? [perm.action, perm.subject].filter(Boolean).join(' ') ?? 'Permission';
+                        return (
+                          <div key={pId} className="flex items-start space-x-3 p-3 border border-border rounded-xl hover:bg-muted transition-colors">
+                            <Checkbox
+                              id={`perm-${pId}`}
+                              checked={!!editedPermissions[pId]}
+                              onCheckedChange={() => togglePermission(pId)}
+                              className="mt-1 data-[state=checked]:bg-[#5b3bf7] data-[state=checked]:border-[#5b3bf7]"
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                              <label
+                                htmlFor={`perm-${pId}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground cursor-pointer capitalize"
+                              >
+                                {pName.replace(/_/g, ' ')}
+                              </label>
+                              {perm.description && (
+                                <p className="text-xs text-muted-foreground">
+                                  {perm.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {permissionsList.length === 0 && (
+                        <p className="text-muted-foreground">No permissions available in the system.</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-muted-foreground">
+                <ShieldCheck className="h-16 w-16 text-slate-200 mb-4" />
+                <p className="text-lg font-medium">Select a role to edit permissions</p>
+                <p className="text-sm mt-1">Choose a role from the left sidebar to view and modify its access levels.</p>
+              </div>
+            )}
+          </Card>
+        </div>
 
-      {/* Create Role Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Create New Role</DialogTitle>
-            <DialogDescription>
-              Define a new role. You can assign permissions to it after creation.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateRole} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Role Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g. Finance Auditor"
-                value={newRoleName}
-                onChange={(e) => setNewRoleName(e.target.value)}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="desc">Description</Label>
-              <Input
-                id="desc"
-                placeholder="Brief description..."
-                value={newRoleDesc}
-                onChange={(e) => setNewRoleDesc(e.target.value)}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-            
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createRoleMutation.isPending} className="bg-[#0aa9ad] hover:bg-[#07969a] text-white rounded-xl">
-                {createRoleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Role"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+        {/* Removed Create Role Dialog */}
+      </div>
     </div>
   );
 }

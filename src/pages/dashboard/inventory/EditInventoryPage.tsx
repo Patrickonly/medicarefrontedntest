@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Edit, Save, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function EditInventoryPage() {
   const { success, error } = useToast();
@@ -29,7 +30,7 @@ export default function EditInventoryPage() {
   const { data: batch, isLoading: isLoadingBatch } = useQuery({
     queryKey: ["product-batch", id],
     queryFn: async () => {
-      const res = await api.get(`/api/product-batches/${id}`);
+      const res = await api.get<{ success: boolean; data: any }>(`/api/product-batches/${id}`);
       return res.data;
     },
     enabled: !!id,
@@ -74,9 +75,7 @@ export default function EditInventoryPage() {
       await api.put(`/api/product-batches/${id}`, data);
     },
     onSuccess: () => {
-      success("Inventory Updated", {
-        description: `${formData.productName} batch details have been updated.`,
-      });
+      success("Inventory Updated", `${formData.productName} batch details have been updated.`);
       queryClient.invalidateQueries({ queryKey: ["product-batches"] });
       queryClient.invalidateQueries({ queryKey: ["product-batch", id] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -84,9 +83,7 @@ export default function EditInventoryPage() {
       navigate("/dashboard/inventory");
     },
     onError: (err: any) => {
-      error("Error", {
-        description: err.message || "Failed to update inventory.",
-      });
+      error("Error", err.message || "Failed to update inventory.");
     }
   });
 
@@ -123,21 +120,21 @@ export default function EditInventoryPage() {
   const isLoading = isLoadingBatch || (!!productId && isLoadingProduct);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <div className="mb-8">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard/inventory")}
-          className="mb-4 text-slate-500 hover:text-slate-900 -ml-4"
+          className="mb-4 text-muted-foreground hover:text-foreground -ml-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Inventory
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Batch & Product</h1>
-        <p className="text-sm text-slate-500">Update pricing and details for this batch.</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit Batch & Product</h1>
+        <p className="text-sm text-muted-foreground">Update pricing and details for this batch.</p>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="border-b border-slate-100 pb-4 bg-slate-50/50 rounded-t-2xl">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="border-b border-border pb-4 bg-background/50 rounded-t-2xl">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <Edit className="h-5 w-5 text-[#0aa9ad]" />
             Batch Details
@@ -146,8 +143,19 @@ export default function EditInventoryPage() {
         </CardHeader>
         <CardContent className="p-6">
           {isLoading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="h-3.5 w-32" />
+                    <Skeleton className="h-10 w-full rounded-xl" />
+                  </div>
+                ))}
+              </div>
+              <div className="pt-6 border-t border-border flex justify-end gap-3">
+                <Skeleton className="h-10 w-24 rounded-xl" />
+                <Skeleton className="h-10 w-36 rounded-xl" />
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -158,7 +166,7 @@ export default function EditInventoryPage() {
                   <Input
                     id="productName"
                     required
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.productName}
                     onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
                   />
@@ -169,7 +177,7 @@ export default function EditInventoryPage() {
                   <Input
                     id="reorderLevel"
                     type="number"
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.reorderLevel}
                     onChange={(e) => setFormData({ ...formData, reorderLevel: Number(e.target.value) })}
                   />
@@ -179,7 +187,7 @@ export default function EditInventoryPage() {
                   <Label htmlFor="batchNumber" className="text-slate-700 font-medium">Batch / Lot Number</Label>
                   <Input
                     id="batchNumber"
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.batchNumber}
                     onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
                   />
@@ -190,7 +198,7 @@ export default function EditInventoryPage() {
                   <Input
                     id="expiryDate"
                     type="date"
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.expiryDate}
                     onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
                   />
@@ -201,7 +209,7 @@ export default function EditInventoryPage() {
                   <Input
                     id="unitCost"
                     type="number"
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.unitCost}
                     onChange={(e) => setFormData({ ...formData, unitCost: Number(e.target.value) })}
                   />
@@ -213,14 +221,14 @@ export default function EditInventoryPage() {
                     id="sellingPrice"
                     type="number"
                     required
-                    className="rounded-xl border-slate-200 focus-visible:ring-[#0aa9ad]"
+                    className="rounded-xl border-border focus-visible:ring-[#0aa9ad]"
                     value={formData.sellingPrice}
                     onChange={(e) => setFormData({ ...formData, sellingPrice: Number(e.target.value) })}
                   />
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+              <div className="pt-6 border-t border-border flex justify-end gap-3">
                 <Button
                   type="button"
                   variant="outline"

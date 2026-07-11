@@ -28,13 +28,11 @@ export default function DiscountRequestsPage() {
       return res.data;
     },
     onSuccess: (data, variables) => {
-      success(variables.status === "Approved" ? "Approved" : "Rejected", { 
-        description: `Discount request ${variables.status.toLowerCase()}.` 
-      });
+      success(variables.status === "Approved" ? "Approved" : "Rejected", `Discount request ${variables.status.toLowerCase()}.`);
       queryClient.invalidateQueries({ queryKey: ["discount-requests"] });
     },
     onError: (err: any) => {
-      error("Error", { description: err.message || "Failed to update status." });
+      error("Error", err.message || "Failed to update status.");
     }
   });
 
@@ -49,16 +47,16 @@ export default function DiscountRequestsPage() {
   const canApprove = userRole === "admin" || userRole === "org_owner" || userRole === "super_admin" || userRole === "director";
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Discount Requests</h1>
-          <p className="text-slate-500">Manage cashier requests for applying discounts to sales.</p>
+          <h1 className="text-2xl font-bold text-foreground">Discount Requests</h1>
+          <p className="text-muted-foreground">Manage cashier requests for applying discounts to sales.</p>
         </div>
       </div>
 
-      <Card className="border-slate-200 shadow-sm rounded-2xl">
-        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+      <Card className="border-border shadow-sm rounded-2xl">
+        <CardHeader className="bg-background/50 border-b border-border py-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Percent className="w-5 h-5 text-[#0aa9ad]" />
             Pending & Past Requests
@@ -79,7 +77,7 @@ export default function DiscountRequestsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : requests.map((req: any) => (
@@ -120,7 +118,7 @@ export default function DiscountRequestsPage() {
               ))}
               {!isLoading && requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">No discount requests found.</TableCell>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No discount requests found.</TableCell>
                 </TableRow>
               )}
             </TableBody>

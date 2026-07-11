@@ -69,7 +69,7 @@ export default function HeroSection() {
 
           <div className="relative grid min-h-[470px] items-center gap-8 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="z-10 max-w-lg">
-              <div className="mb-5 inline-flex rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-white/90 backdrop-blur">
+              <div className="mb-5 inline-flex rounded-full bg-card/15 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-white/90 backdrop-blur">
                 Enterprise Healthcare Platform
               </div>
 
@@ -83,7 +83,7 @@ export default function HeroSection() {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/contact">
-                  <Button className="h-12 rounded-full bg-white px-7 text-sm font-black text-[#078b90] shadow-xl shadow-teal-950/10 hover:bg-white/90">
+                  <Button className="h-12 rounded-full bg-card px-7 text-sm font-black text-[#078b90] shadow-xl shadow-teal-950/10 hover:bg-card/90">
                     View Plans
                     <ArrowRight size={17} className="ml-2" />
                   </Button>
@@ -92,7 +92,7 @@ export default function HeroSection() {
                 <Link to="/register">
                   <Button
                     variant="outline"
-                    className="h-12 rounded-full border-white/40 bg-white/10 px-7 text-sm font-black text-white backdrop-blur hover:bg-white/20"
+                    className="h-12 rounded-full border-white/40 bg-card/10 px-7 text-sm font-black text-white backdrop-blur hover:bg-card/20"
                   >
                     Start Implementation
                   </Button>
@@ -107,17 +107,17 @@ export default function HeroSection() {
                 className="h-[430px] w-full rounded-[2.2rem] object-cover object-center shadow-2xl shadow-teal-950/10"
               />
 
-              <div className="absolute right-8 top-12 flex w-64 items-center gap-3 rounded-full bg-white px-4 py-3 shadow-xl">
+              <div className="absolute right-8 top-12 flex w-64 items-center gap-3 rounded-full bg-card px-4 py-3 shadow-xl">
                 <span className="h-4 w-4 rounded-full bg-[#10bfc2]" />
                 <span className="h-2 flex-1 rounded-full bg-slate-200" />
               </div>
 
-              <div className="absolute right-12 top-28 flex w-72 items-center gap-3 rounded-full bg-white px-4 py-3 shadow-xl">
+              <div className="absolute right-12 top-28 flex w-72 items-center gap-3 rounded-full bg-card px-4 py-3 shadow-xl">
                 <span className="h-4 w-4 rounded-full bg-[#10bfc2]" />
                 <span className="h-2 flex-1 rounded-full bg-slate-200" />
               </div>
 
-              <div className="absolute right-20 top-44 flex w-60 items-center gap-3 rounded-full bg-white px-4 py-3 shadow-xl">
+              <div className="absolute right-20 top-44 flex w-60 items-center gap-3 rounded-full bg-card px-4 py-3 shadow-xl">
                 <span className="h-4 w-4 rounded-full bg-[#10bfc2]" />
                 <span className="h-2 flex-1 rounded-full bg-slate-200" />
               </div>
@@ -141,11 +141,11 @@ export default function HeroSection() {
               className="absolute left-8 top-0 h-[470px] w-[72%] rounded-[2.8rem] object-cover shadow-2xl shadow-teal-900/10"
             />
 
-            <div className="absolute right-0 top-24 w-[48%] rounded-[2rem] border border-[#dcebf0] bg-white p-4 shadow-xl">
+            <div className="absolute right-0 top-24 w-[48%] rounded-[2rem] border border-border bg-card p-4 shadow-xl">
               <div className="mb-3 h-4 w-24 rounded-full bg-[#09111f]" />
               <div className="space-y-2">
                 {[90, 76, 62, 82, 54].map((width) => (
-                  <div key={width} className="h-3 rounded-full bg-slate-100">
+                  <div key={width} className="h-3 rounded-full bg-muted">
                     <div className="h-3 rounded-full bg-[#10bfc2]" style={{ width: `${width}%` }} />
                   </div>
                 ))}
@@ -175,7 +175,7 @@ export default function HeroSection() {
               {workflowCards.map((item) => (
                 <div
                   key={item.title}
-                  className="flex items-start gap-4 rounded-[1.7rem] border border-[#dcebf0] bg-white p-5 shadow-sm"
+                  className="flex items-start gap-4 rounded-[1.7rem] border border-border bg-card p-5 shadow-sm"
                 >
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#10bfc2] text-white">
                     <item.icon size={21} />
@@ -203,7 +203,7 @@ export default function HeroSection() {
               {mapStats.map((item, index) => (
                 <div
                   key={item}
-                  className="flex items-center gap-4 rounded-[1.7rem] border border-[#bfecef] bg-white p-4 shadow-sm"
+                  className="flex items-center gap-4 rounded-[1.7rem] border border-[#bfecef] bg-card p-4 shadow-sm"
                 >
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e8fbfb] text-lg font-black text-[#07969a]">
                     {index + 1}
@@ -217,10 +217,10 @@ export default function HeroSection() {
           <div className="relative min-h-[430px] overflow-hidden rounded-[2.8rem] bg-[#e8fbfb] p-8">
             <div className="absolute right-10 top-8 h-72 w-72 rounded-full bg-[#10bfc2]/20 blur-3xl" />
             <div className="relative mx-auto h-[330px] max-w-[460px] rounded-[45%] bg-[#10bfc2] shadow-2xl shadow-teal-900/10">
-              <div className="absolute left-14 top-12 h-3 w-3 rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
-              <div className="absolute right-20 top-20 h-3 w-3 rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
-              <div className="absolute bottom-20 left-24 h-3 w-3 rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
-              <div className="absolute bottom-12 right-28 h-3 w-3 rounded-full bg-white shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
+              <div className="absolute left-14 top-12 h-3 w-3 rounded-full bg-card shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
+              <div className="absolute right-20 top-20 h-3 w-3 rounded-full bg-card shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
+              <div className="absolute bottom-20 left-24 h-3 w-3 rounded-full bg-card shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
+              <div className="absolute bottom-12 right-28 h-3 w-3 rounded-full bg-card shadow-[0_0_22px_rgba(255,255,255,0.9)]" />
               <MapPin className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 text-white/80" />
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function HeroSection() {
               "Configure departments and services",
               "Start patient and pharmacy operations",
             ].map((item, index) => (
-              <div key={item} className="relative rounded-[2rem] border border-white/20 bg-white/10 p-6 backdrop-blur">
+              <div key={item} className="relative rounded-[2rem] border border-white/20 bg-card/10 p-6 backdrop-blur">
                 <div className="absolute -top-5 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-[#056e72] text-sm font-black text-white">
                   {index + 1}
                 </div>

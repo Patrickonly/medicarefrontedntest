@@ -52,6 +52,7 @@ const inquiryTypes = [
 ];
 
 export default function ContactPage() {
+  const { success } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -80,7 +81,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5fbfb]">
+    <div className="min-h-screen bg-background">
       <LandingNavbar />
 
       <section className="relative overflow-hidden pt-32 pb-16">
@@ -102,7 +103,7 @@ export default function ContactPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
           >
-            <span className="inline-flex rounded-full border border-[#bceef0] bg-white px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
+            <span className="inline-flex rounded-full border border-[#bceef0] bg-card px-5 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#07969a]">
               Contact MediCare ONE
             </span>
 
@@ -119,7 +120,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="border-y border-[#dcebf0] bg-white py-12">
+      <section className="border-y border-border bg-card py-12">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {contactInfo.map((item, index) => (
@@ -129,7 +130,7 @@ export default function ContactPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.06 }}
-                className="rounded-[2rem] border border-[#dcebf0] bg-[#f6fbfb] p-5 transition hover:border-[#8ee4e7] hover:bg-[#e8fbfb]"
+                className="rounded-[2rem] border border-border bg-muted p-5 transition hover:border-[#8ee4e7] hover:bg-[#e8fbfb]"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0aa9ad] text-white">
                   <item.icon size={20} />
@@ -157,7 +158,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="bg-white py-20 sm:py-24">
+      <section className="bg-card py-20 sm:py-24">
         <div className="medicare-container px-4 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-5">
             <motion.div
@@ -315,7 +316,7 @@ export default function ContactPage() {
               viewport={{ once: true }}
               className="space-y-5 lg:col-span-2"
             >
-              <div className="rounded-[2rem] border border-[#dcebf0] bg-[#f6fbfb] p-6">
+              <div className="rounded-[2rem] border border-border bg-muted p-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0aa9ad] text-white">
                     <ClipboardCheck size={20} />
@@ -332,7 +333,7 @@ export default function ContactPage() {
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-[#dcebf0] bg-white p-6 shadow-sm">
+              <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e8fbfb] text-[#07969a]">
                     <Stethoscope size={20} />

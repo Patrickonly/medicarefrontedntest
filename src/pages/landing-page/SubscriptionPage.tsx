@@ -287,7 +287,7 @@ export default function SubscriptionPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5fbfb]">
+    <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-20 h-80 w-80 rounded-[5rem] bg-[#e4fafa]" />
         <div className="absolute right-[-120px] bottom-20 h-96 w-96 rounded-[5rem] bg-[#dff8f8]" />
@@ -297,11 +297,11 @@ export default function SubscriptionPage() {
         {/* Left Column - Branded Side */}
         <section className="relative hidden overflow-hidden bg-[#0aa9ad] text-white lg:block">
           <div className="absolute inset-0 bg-gradient-to-tr from-[#057d82]/90 via-[#079ba0]/80 to-[#0aa9ad]/60" />
-          <div className="absolute -bottom-24 -left-16 h-72 w-72 rounded-[5rem] bg-white/10" />
-          <div className="absolute right-10 top-28 h-52 w-52 rounded-[4rem] bg-white/10" />
+          <div className="absolute -bottom-24 -left-16 h-72 w-72 rounded-[5rem] bg-card/10" />
+          <div className="absolute right-10 top-28 h-52 w-52 rounded-[4rem] bg-card/10" />
 
           <div className="absolute left-10 top-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07969a] shadow-xl shadow-teal-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-[#07969a] shadow-xl shadow-teal-950/10">
               <HeartPulse className="h-7 w-7" />
             </div>
             <div>
@@ -314,7 +314,7 @@ export default function SubscriptionPage() {
 
           <div className="relative z-10 flex min-h-screen flex-col justify-center px-12 py-24 xl:px-16">
             <div className="max-w-xl">
-              <div className="mb-7 inline-flex rounded-full bg-white/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
+              <div className="mb-7 inline-flex rounded-full bg-card/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
                 Step {step} of 2
               </div>
 
@@ -332,10 +332,10 @@ export default function SubscriptionPage() {
                 <div className="flex items-center gap-4">
                   {[1, 2].map((s) => (
                     <div key={s} className="flex items-center gap-2">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold transition-colors ${step >= s ? "bg-white text-[#0aa9ad]" : "bg-white/20 text-white"}`}>
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full font-bold transition-colors ${step >= s ? "bg-card text-[#0aa9ad]" : "bg-card/20 text-white"}`}>
                         {s < step ? <CheckCircle className="h-5 w-5" /> : s}
                       </div>
-                      {s < 2 && <div className={`h-1 w-12 rounded-full ${step > s ? "bg-white" : "bg-white/20"}`} />}
+                      {s < 2 && <div className={`h-1 w-12 rounded-full ${step > s ? "bg-card" : "bg-card/20"}`} />}
                     </div>
                   ))}
                 </div>
@@ -356,7 +356,7 @@ export default function SubscriptionPage() {
               {step === 1 ? "Go Back" : "Back"}
             </Button>
 
-            <div className="rounded-[2.5rem] border border-[#dcebf0] bg-white/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 min-h-[600px] flex flex-col">
+            <div className="rounded-[2.5rem] border border-border bg-card/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9 min-h-[600px] flex flex-col">
 
               {/* --- STEP 1: Plan Selection --- */}
               {step === 1 && (
@@ -371,16 +371,16 @@ export default function SubscriptionPage() {
                       onValueChange={(v) => setBillingCycle(v as "monthly" | "yearly")}
                       className="w-[280px]"
                     >
-                      <TabsList className="w-full grid grid-cols-2 bg-[#f6fbfb]">
-                        <TabsTrigger value="monthly" className="data-[state=active]:bg-white rounded-full">Monthly</TabsTrigger>
-                        <TabsTrigger value="yearly" className="data-[state=active]:bg-white rounded-full">Yearly</TabsTrigger>
+                      <TabsList className="w-full grid grid-cols-2 bg-muted">
+                        <TabsTrigger value="monthly" className="data-[state=active]:bg-card rounded-full">Monthly</TabsTrigger>
+                        <TabsTrigger value="yearly" className="data-[state=active]:bg-card rounded-full">Yearly</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
 
                   {plansLoading ? (
                     <div className="flex-1 flex items-center justify-center py-20">
-                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -396,7 +396,7 @@ export default function SubscriptionPage() {
                             className={`relative rounded-[1.6rem] border p-6 cursor-pointer transition-all ${
                               isSelected
                                 ? "border-[#0aa9ad] bg-[#e8fbfb] shadow-lg ring-1 ring-[#0aa9ad]"
-                                : "border-[#dcebf0] bg-white hover:border-[#8ee4e7]"
+                                : "border-border bg-card hover:border-[#8ee4e7]"
                             }`}
                             onClick={() => setSelectedPlanId(plan.id)}
                           >
@@ -434,7 +434,7 @@ export default function SubscriptionPage() {
                     </div>
                   )}
 
-                  <div className="mt-auto pt-6 flex justify-end border-t border-[#dcebf0]">
+                  <div className="mt-auto pt-6 flex justify-end border-t border-border">
                     <Button
                       className="h-12 px-8 rounded-full bg-[#0aa9ad] hover:bg-[#07969a] text-white shadow-xl shadow-teal-500/20 font-black"
                       onClick={handleNextStep}
@@ -464,7 +464,7 @@ export default function SubscriptionPage() {
                         <RadioGroupItem value="ONLINE" id="online" className="peer sr-only" />
                         <Label
                           htmlFor="online"
-                          className="flex flex-col items-center justify-between rounded-[1.6rem] border-2 border-[#dcebf0] bg-white p-6 hover:bg-[#e8fbfb] peer-data-[state=checked]:border-[#0aa9ad] [&:has([data-state=checked])]:bg-[#f0fcfc] cursor-pointer transition-all"
+                          className="flex flex-col items-center justify-between rounded-[1.6rem] border-2 border-border bg-card p-6 hover:bg-[#e8fbfb] peer-data-[state=checked]:border-[#0aa9ad] [&:has([data-state=checked])]:bg-[#f0fcfc] cursor-pointer transition-all"
                         >
                           <CreditCard className="mb-3 h-10 w-10 text-[#5f6d84] peer-data-[state=checked]:text-[#0aa9ad]" />
                           <div className="text-center">
@@ -477,7 +477,7 @@ export default function SubscriptionPage() {
                         <RadioGroupItem value="MANUAL" id="manual" className="peer sr-only" />
                         <Label
                           htmlFor="manual"
-                          className="flex flex-col items-center justify-between rounded-[1.6rem] border-2 border-[#dcebf0] bg-white p-6 hover:bg-[#e8fbfb] peer-data-[state=checked]:border-[#0aa9ad] [&:has([data-state=checked])]:bg-[#f0fcfc] cursor-pointer transition-all"
+                          className="flex flex-col items-center justify-between rounded-[1.6rem] border-2 border-border bg-card p-6 hover:bg-[#e8fbfb] peer-data-[state=checked]:border-[#0aa9ad] [&:has([data-state=checked])]:bg-[#f0fcfc] cursor-pointer transition-all"
                         >
                           <Shield className="mb-3 h-10 w-10 text-[#5f6d84] peer-data-[state=checked]:text-[#0aa9ad]" />
                           <div className="text-center">
@@ -498,7 +498,7 @@ export default function SubscriptionPage() {
                         htmlFor="receipt-upload"
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={handleReceiptDrop}
-                        className="relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#0aa9ad]/40 bg-[#f6fbfb] p-8 text-center cursor-pointer hover:bg-[#eefbfb] transition-colors"
+                        className="relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#0aa9ad]/40 bg-muted p-8 text-center cursor-pointer hover:bg-[#eefbfb] transition-colors"
                       >
                         {proofFile && !uploadingProof && (
                           <button
@@ -509,7 +509,7 @@ export default function SubscriptionPage() {
                               e.stopPropagation();
                               clearProofFile();
                             }}
-                            className="absolute right-3 top-3 rounded-full bg-white p-1.5 text-[#5f6d84] shadow hover:text-red-600 transition-colors"
+                            className="absolute right-3 top-3 rounded-full bg-card p-1.5 text-[#5f6d84] shadow hover:text-red-600 transition-colors"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -539,8 +539,8 @@ export default function SubscriptionPage() {
                     </div>
                   )}
 
-                  <div className="bg-[#f6fbfb] rounded-2xl p-6 mb-8 border border-[#dcebf0]">
-                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-[#dcebf0]">
+                  <div className="bg-muted rounded-2xl p-6 mb-8 border border-border">
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-border">
                       <span className="text-[#5f6d84] font-medium">Selected Plan</span>
                       <span className="font-bold text-[#09111f]">{selectedPlan?.name || "-"} ({billingCycle})</span>
                     </div>
@@ -550,7 +550,7 @@ export default function SubscriptionPage() {
                     </div>
                   </div>
 
-                  <div className="mt-auto pt-6 flex flex-col sm:flex-row justify-between gap-4 border-t border-[#dcebf0]">
+                  <div className="mt-auto pt-6 flex flex-col sm:flex-row justify-between gap-4 border-t border-border">
                     <p className="text-xs text-[#5f6d84] self-center flex items-center gap-1 font-semibold">
                       <Shield className="h-4 w-4 text-[#0aa9ad]" /> Secure, encrypted setup
                     </p>
@@ -580,15 +580,15 @@ export default function SubscriptionPage() {
       {/* Manual Payment Receipt Dialog */}
       <Dialog open={receiptOpen} onOpenChange={(open) => !open && handleReceiptClose()}>
         <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader className="text-center pb-2 border-b border-dashed border-slate-300">
+          <DialogHeader className="text-center pb-2 border-b border-dashed border-border">
             <DialogTitle className="text-xl font-black">SUBSCRIPTION RECEIPT</DialogTitle>
-            <p className="text-xs text-slate-500">MEDICARE ONE</p>
+            <p className="text-xs text-muted-foreground">MEDICARE ONE</p>
           </DialogHeader>
           {receipt && (
-            <div ref={receiptRef} className="bg-white py-4 space-y-4 font-mono text-xs text-slate-700">
+            <div ref={receiptRef} className="bg-card py-4 space-y-4 font-mono text-xs text-slate-700">
               <div className="text-center pb-2">
                 <p className="text-sm font-black">MEDICARE ONE</p>
-                <p className="text-[10px] text-slate-500">Healthcare Operations Platform</p>
+                <p className="text-[10px] text-muted-foreground">Healthcare Operations Platform</p>
               </div>
               <div className="flex justify-between">
                 <span>Reference:</span>
@@ -606,13 +606,13 @@ export default function SubscriptionPage() {
                 <span>Valid Until:</span>
                 <span>{receipt.endDate.toLocaleDateString()}</span>
               </div>
-              <div className="border-t border-b border-dashed border-slate-300 py-2">
+              <div className="border-t border-b border-dashed border-border py-2">
                 <div className="flex justify-between font-bold text-sm">
                   <span>TOTAL (RWF):</span>
                   <span>{receipt.amount.toLocaleString()}</span>
                 </div>
               </div>
-              <div className="pt-2 text-center text-[10px] text-slate-500">
+              <div className="pt-2 text-center text-[10px] text-muted-foreground">
                 <p>Payment Method: Manual (Bank Transfer)</p>
                 <p className="mt-1 text-amber-600 font-semibold">
                   Payment pending verification. Please complete your bank transfer

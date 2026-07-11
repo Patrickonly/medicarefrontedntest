@@ -56,7 +56,10 @@ const readStoredAuthUser = (): { id?: string; userId?: string; organizationId?: 
 
 const getStoredOrganizationId = (): string | undefined => {
   const storedUser = readStoredAuthUser();
-  return localStorage.getItem('auth_organization_id') || storedUser?.organizationId || storedUser?.organization_id || undefined;
+  const raw = localStorage.getItem('auth_organization_id') || storedUser?.organizationId || storedUser?.organization_id || undefined;
+  // Guard against stale localStorage entries storing the literal string "undefined"
+  if (!raw || raw === 'undefined' || raw === 'null') return undefined;
+  return raw;
 };
 
 const getStoredUserId = (): string | undefined => {
@@ -75,7 +78,7 @@ const getHeaders = (options?: ApiRequestOptions, url?: string): HeadersInit => {
   }
 
   const organizationId = options?.skipOrganizationIdHeader ? undefined : (options?.organizationId || getStoredOrganizationId());
-  if (organizationId) {
+  if (organizationId && organizationId !== 'undefined' && organizationId !== 'null') {
     headers['x-organization-id'] = organizationId;
   }
 
@@ -89,7 +92,7 @@ const getHeaders = (options?: ApiRequestOptions, url?: string): HeadersInit => {
   }
 
   const adminId = options?.adminId;
-  if (adminId) {
+  if (adminId && adminId !== 'undefined' && adminId !== 'null') {
     headers['x-admin-id'] = adminId;
   }
 
@@ -118,10 +121,12 @@ async function handleResponse<T>(response: Response, url: string): Promise<T> {
     // credentials themselves were rejected, not that an existing session went
     // stale — there's no session yet at that point. Only endpoints that act on
     // an existing token (chiefly /api/auth/validate) should trigger the
-    // session-expired logout flow.
+    // session-expired logout flow. Other endpoints' 401s are thrown normally
+    // so callers can handle them gracefully without destroying the session.
     const isPreSessionAuthCall = /\/api\/auth\/(login|register|forgot-password|reset-password|verify-otp|otp)(\?|$)/i.test(url);
+    const isSessionValidation = /\/api\/auth\/validate(\?|$)/i.test(url);
 
-    if (response.status === 401 && !isPreSessionAuthCall) {
+    if (response.status === 401 && isSessionValidation) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
       localStorage.removeItem('auth_organization_id');
@@ -152,15 +157,20 @@ async function handleResponse<T>(response: Response, url: string): Promise<T> {
 async function request<T>(url: string, options: RequestInit): Promise<T> {
   try {
     const res = await fetch(resolveApiUrl(url), options);
+    try { window.dispatchEvent(new Event('api:online')); } catch { /* ignore */ }
     return await handleResponse<T>(res, url);
   } catch (error) {
     if (error instanceof Error) {
       const networkFailure = /failed to fetch|networkerror|load failed|econnrefused|err_connection_refused/i.test(error.message);
+      if (networkFailure) {
+        try { window.dispatchEvent(new Event('api:offline')); } catch { /* ignore */ }
+      }
       if (!networkFailure) {
         throw error;
       }
     }
 
+    try { window.dispatchEvent(new Event('api:offline')); } catch { /* ignore */ }
     throw new Error(
       apiBaseUrl
         ? `Unable to reach the API at ${apiBaseUrl}. Make sure the backend server is running.`

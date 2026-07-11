@@ -25,10 +25,17 @@ export default function RegisterPage() {
   const { data: facilityTypes = [], isLoading: isLoadingFacilityTypes } = useQuery({
     queryKey: ["organization-types"],
     queryFn: async () => {
-      const res = await api.get<{ success: boolean; data: Array<{ id: string | number; name: string }> }>(
-        "/api/organization-types"
-      );
-      return (res.data || []).map((t) => ({ id: String(t.id), label: t.name }));
+      try {
+        const res = await api.get<{ success: boolean; data: Array<{ id: string | number; name: string; status?: string }> }>(
+          "/api/organization-types"
+        );
+        return (res.data || [])
+          .filter((t) => typeof t?.status === "string" && t.status.toUpperCase() === "ACTIVE")
+          .map((t) => ({ id: String(t.id), label: t.name }));
+      } catch (error) {
+        console.error("Failed to fetch organization types:", error);
+        return [];
+      }
     },
   });
 
@@ -48,6 +55,8 @@ export default function RegisterPage() {
   const [website, setWebsite] = useState("");
   const [addressCity, setAddressCity] = useState("");
   const [addressCountry, setAddressCountry] = useState("Rwanda");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [certFile, setCertFile] = useState<File | null>(null);
 
   // Step 2: User Details
   const [firstName, setFirstName] = useState("");
@@ -102,6 +111,31 @@ export default function RegisterPage() {
     setLoading(true);
     
     try {
+      let logoUrl = "";
+      let certUrl = "";
+
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append("file", logoFile);
+        formData.append("kind", "avatar");
+        const res = await fetch("/api/uploads", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          logoUrl = data.data?.url || "";
+        }
+      }
+
+      if (certFile) {
+        const formData = new FormData();
+        formData.append("file", certFile);
+        formData.append("kind", "misc");
+        const res = await fetch("/api/uploads", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          certUrl = data.data?.url || "";
+        }
+      }
+
       const { error: signUpError, userId, organizationId } = await signUp({
         organizationName,
         organizationTypeId,
@@ -115,11 +149,13 @@ export default function RegisterPage() {
         registrationNumber,
         licenseNumber,
         website,
+        logo_url: logoUrl || undefined,
+        business_certificate_url: certUrl || undefined,
         address: {
           country: addressCountry,
           city: addressCity
         }
-      });
+      } as any);
       
       if (signUpError) {
         toastError("Error", signUpError.message || "Failed to register");
@@ -139,7 +175,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5fbfb]">
+    <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-20 h-80 w-80 rounded-[5rem] bg-[#e4fafa]" />
         <div className="absolute right-[-120px] bottom-20 h-96 w-96 rounded-[5rem] bg-[#dff8f8]" />
@@ -157,7 +193,7 @@ export default function RegisterPage() {
           <div className="absolute inset-0 bg-gradient-to-tr from-[#057d82]/90 via-[#079ba0]/80 to-[#0aa9ad]/60" />
           
           <div className="absolute left-10 top-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07969a] shadow-xl shadow-teal-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-[#07969a] shadow-xl shadow-teal-950/10">
               <HeartPulse className="h-7 w-7" />
             </div>
             <div>
@@ -168,7 +204,7 @@ export default function RegisterPage() {
 
           <div className="relative z-10 flex min-h-screen flex-col justify-center px-12 py-24 xl:px-16">
             <div className="max-w-xl">
-              <div className="mb-7 inline-flex rounded-full bg-white/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
+              <div className="mb-7 inline-flex rounded-full bg-card/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white backdrop-blur">
                 Secure Facility Onboarding
               </div>
               <h1 className="font-heading text-5xl font-extrabold leading-tight tracking-tight xl:text-6xl">
@@ -188,7 +224,7 @@ export default function RegisterPage() {
               Back to home
             </Link>
 
-            <div className="rounded-[2.5rem] border border-[#dcebf0] bg-white/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9">
+            <div className="rounded-[2.5rem] border border-border bg-card/95 p-7 shadow-2xl shadow-teal-900/10 backdrop-blur sm:p-9">
               <div className="mb-8 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0aa9ad] text-white">
                   {currentStep === 1 ? <Building2 className="h-7 w-7" /> : <User className="h-7 w-7" />}
@@ -219,7 +255,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Organization Name *</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="e.g. Hope Clinic"
                         value={organizationName}
                         onChange={(e) => setOrganizationName(e.target.value)}
@@ -231,7 +267,7 @@ export default function RegisterPage() {
                       <select
                         id="organizationTypeId"
                         aria-label="Organization Type"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 bg-white"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 bg-card"
                         value={organizationTypeId}
                         onChange={(e) => setOrganizationTypeId(e.target.value)}
                         disabled={isLoadingFacilityTypes}
@@ -248,7 +284,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Business Unit</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="e.g. Healthcare"
                         value={businessUnit}
                         onChange={(e) => setBusinessUnit(e.target.value)}
@@ -259,7 +295,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Tax ID</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="Optional"
                         value={taxId}
                         onChange={(e) => setTaxId(e.target.value)}
@@ -269,7 +305,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Registration No.</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="Optional"
                         value={registrationNumber}
                         onChange={(e) => setRegistrationNumber(e.target.value)}
@@ -278,23 +314,48 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Country *</label>
-                      <input
-                        type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                      <select
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 bg-card"
                         value={addressCountry}
                         onChange={(e) => setAddressCountry(e.target.value)}
-                      />
+                      >
+                        <option value="Rwanda">Rwanda</option>
+                        <option value="Kenya">Kenya</option>
+                        <option value="Uganda">Uganda</option>
+                        <option value="Tanzania">Tanzania</option>
+                      </select>
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">City *</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="Kigali"
                         value={addressCity}
                         onChange={(e) => setAddressCity(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-black text-[#09111f]">Upload Logo (Optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="w-full h-14 rounded-xl border border-border px-4 py-3 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 bg-card cursor-pointer"
+                        onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-black text-[#09111f]">Business Certificate (Optional)</label>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        className="w-full h-14 rounded-xl border border-border px-4 py-3 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10 bg-card cursor-pointer"
+                        onChange={(e) => setCertFile(e.target.files?.[0] || null)}
                       />
                     </div>
                   </div>
@@ -309,7 +370,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">First Name *</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="John"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
@@ -319,7 +380,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Last Name *</label>
                       <input
                         type="text"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="Doe"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
@@ -330,7 +391,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Email Address *</label>
                       <input
                         type="email"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="john@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -340,7 +401,7 @@ export default function RegisterPage() {
                       <label className="mb-1.5 block text-sm font-black text-[#09111f]">Phone Number</label>
                       <input
                         type="tel"
-                        className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        className="w-full h-14 rounded-xl border border-border px-4 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                         placeholder="+250780000000"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
@@ -352,7 +413,7 @@ export default function RegisterPage() {
                       <div className="relative">
                         <input
                           type={showPassword ? "text" : "password"}
-                          className="w-full h-14 rounded-xl border border-[#dcebf0] px-4 pr-12 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                          className="w-full h-14 rounded-xl border border-border px-4 pr-12 text-sm font-bold text-[#09111f] outline-none transition focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
                           placeholder="Create a secure password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -376,7 +437,7 @@ export default function RegisterPage() {
                   <Button
                     type="button"
                     onClick={() => setCurrentStep(1)}
-                    className="flex-1 h-14 rounded-full border-2 border-[#dcebf0] bg-transparent text-[#09111f] hover:bg-[#eef4f5] text-base font-black"
+                    className="flex-1 h-14 rounded-full border-2 border-border bg-transparent text-[#09111f] hover:bg-[#eef4f5] text-base font-black"
                   >
                     Back
                   </Button>

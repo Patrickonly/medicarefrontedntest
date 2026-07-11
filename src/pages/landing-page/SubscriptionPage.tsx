@@ -71,6 +71,7 @@ export default function SubscriptionPage() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
     // Legitimate here means either: a real logged-in session (the
@@ -187,6 +188,11 @@ export default function SubscriptionPage() {
       return;
     }
 
+    if (paymentMethod === "ONLINE" && !phoneNumber) {
+      error("Error", "Please enter your Mobile Money phone number before continuing.");
+      return;
+    }
+
     setLoading(true);
     try {
       const startDate = new Date();
@@ -205,6 +211,7 @@ export default function SubscriptionPage() {
           planId: selectedPlan.id,
           months,
           paymentMethod: paymentMethod === "ONLINE" ? "MOMO" : "MANUAL_INVOICE",
+          phone: paymentMethod === "ONLINE" ? phoneNumber : undefined,
           receiptUrl: paymentMethod === "MANUAL" ? proofUrl : undefined,
         },
         flowToken ? { headers: { "x-flow-token": flowToken } } : undefined
@@ -536,6 +543,21 @@ export default function SubscriptionPage() {
                           onChange={(e) => handleProofFileChange(e.target.files?.[0] || null)}
                         />
                       </label>
+                    </div>
+                  )}
+
+                  {paymentMethod === "ONLINE" && (
+                    <div className="mb-8 max-w-2xl mx-auto w-full">
+                      <Label className="mb-2 block text-sm font-bold text-[#09111f]">
+                        Mobile Money Phone Number
+                      </Label>
+                      <input
+                        type="tel"
+                        className="h-14 w-full rounded-[1.2rem] border border-border bg-card px-6 text-sm font-bold text-[#09111f] outline-none transition placeholder:text-[#9badbd] focus:border-[#0aa9ad] focus:ring-4 focus:ring-[#0aa9ad]/10"
+                        placeholder="e.g. 078XXXXXXX"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                      />
                     </div>
                   )}
 

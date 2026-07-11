@@ -30,9 +30,10 @@ const statusBadgeClass: Record<string, string> = {
 const apiBaseUrl = (() => {
   try {
     const base = import.meta.env.VITE_API_BASE_URL;
-    return typeof base === "string" ? base.trim().replace(/\/$/, "") : "";
+    if (typeof base === 'string' && base.trim() !== '') return base.trim().replace(/\/$/, '');
+    return 'https://medicarebackendtest-rnnf.vercel.app';
   } catch {
-    return "";
+    return 'https://medicarebackendtest-rnnf.vercel.app';
   }
 })();
 

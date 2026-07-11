@@ -9,9 +9,9 @@ const apiBaseUrl = (() => {
   try {
     const base = import.meta.env.VITE_API_BASE_URL;
     if (typeof base === 'string' && base.trim() !== '') return base.trim().replace(/\/$/, '');
-    return 'http://localhost:3000';
+    return 'https://medicarebackendtest.vercel.app';
   } catch {
-    return 'http://localhost:3000';
+    return 'https://medicarebackendtest.vercel.app';
   }
 })();
 

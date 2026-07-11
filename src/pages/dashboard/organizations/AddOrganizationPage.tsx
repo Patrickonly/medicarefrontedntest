@@ -22,8 +22,9 @@ export default function AddOrganizationPage() {
         return (res.data || [])
           .filter((t) => typeof t?.status === "string" && t.status.toUpperCase() === "ACTIVE")
           .map((t) => ({ id: String(t.id), label: t.name }));
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch organization types:", error);
+        toastError("Connection Error", error.message || "Failed to load organization types. Please try again.");
         return [];
       }
     },

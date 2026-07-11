@@ -5,15 +5,7 @@ interface ApiRequestOptions extends RequestInit {
   skipOrganizationIdHeader?: boolean;
 }
 
-const apiBaseUrl = (() => {
-  try {
-    const base = import.meta.env.VITE_API_BASE_URL;
-    if (typeof base === 'string' && base.trim() !== '') return base.trim().replace(/\/$/, '');
-    return 'https://medicarebackendtest.vercel.app';
-  } catch {
-    return 'https://medicarebackendtest.vercel.app';
-  }
-})();
+const apiBaseUrl = "";
 
 const resolveApiUrl = (url: string) => {
   if (!apiBaseUrl) return url;
